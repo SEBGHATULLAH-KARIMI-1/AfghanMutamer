@@ -127,7 +127,7 @@ export default function Reports() {
   return (
     <div>
       <div className="card mb-3">
-        <div className="card-body" style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 14 }}>
+        <div className="card-body reports-filterbar" style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 14 }}>
           <div className="chip-group">
             {RANGE_OPTIONS.map((r) => (
               <button key={r.key} className={`chip ${range === r.key ? 'active' : ''}`} onClick={() => setRange(r.key)}>{r.label}</button>
@@ -175,7 +175,7 @@ export default function Reports() {
           </div>
           <div className="card">
             <div className="card-header"><h3>نسبت حج و عمره</h3></div>
-            <div className="card-body"><Pie data={pieData} /></div>
+            <div className="card-body" style={{ minWidth: 0, overflow: 'hidden' }}><Pie data={pieData} /></div>
           </div>
         </div>
       )}
@@ -226,7 +226,7 @@ export default function Reports() {
           </div>
           <div className="card">
             <div className="card-header"><h3>توزیع سمت‌ها</h3></div>
-            <div className="card-body"><Bar data={barData} options={{ plugins: { legend: { display: false } } }} /></div>
+            <div className="card-body" style={{ minWidth: 0, overflow: 'hidden' }}><Bar data={barData} options={{ plugins: { legend: { display: false } } }} /></div>
           </div>
         </div>
       )}

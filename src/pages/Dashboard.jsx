@@ -133,7 +133,7 @@ export default function Dashboard() {
       <div className="dashboard-grid">
         <div className="card">
           <div className="card-header"><h3>نمودار ثبت‌نام ماهانه زائران</h3></div>
-          <div className="card-body"><Line data={lineData} options={chartOptions} /></div>
+          <div className="card-body" style={{ minWidth: 0, overflow: 'hidden' }}><Line data={lineData} options={chartOptions} /></div>
         </div>
         <div className="card">
           <div className="card-header"><h3>برنامه‌های سفر آینده</h3></div>
@@ -156,7 +156,7 @@ export default function Dashboard() {
       <div className="dashboard-grid mt-3">
         <div className="card">
           <div className="card-header"><h3>نمودار درآمد ماهانه</h3></div>
-          <div className="card-body"><Bar data={barData} options={chartOptions} /></div>
+          <div className="card-body" style={{ minWidth: 0, overflow: 'hidden' }}><Bar data={barData} options={chartOptions} /></div>
         </div>
         <div className="card">
           <div className="card-header"><h3>اعلان‌های اخیر</h3></div>
