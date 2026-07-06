@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import {
-  FiPlus, FiSearch, FiEdit2, FiTrash2, FiBuilding, FiPhone, FiMail, FiMapPin, FiUser, FiDollarSign, FiDownload, FiFileText, FiShare2, FiArrowRight, FiEye,
+  FiPlus, FiSearch, FiEdit2, FiTrash2, FiBriefcase, FiPhone, FiMail, FiMapPin, FiUser, FiDollarSign, FiDownload, FiFileText, FiShare2, FiArrowRight, FiEye,
 } from 'react-icons/fi'
 import { useData } from '../contexts/DataContext'
 import { useToast } from '../contexts/ToastContext'
@@ -148,7 +148,7 @@ export default function Companies() {
               <>
                 <div className="card" style={{ marginBottom: 18 }}>
                   <div className="card-header">
-                    <h3><FiBuilding /> {viewCompany.name}</h3>
+                    <h3><FiBriefcase /> {viewCompany.name}</h3>
                     <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                       <button className="btn btn-outline btn-sm" onClick={() => exportData(viewCompany, 'pdf')}><FiFileText /> PDF</button>
                       <button className="btn btn-outline btn-sm" onClick={() => exportData(viewCompany, 'excel')}><FiDownload /> Excel</button>
@@ -247,7 +247,7 @@ export default function Companies() {
         /* ─── Companies List ─── */
         <div className="card">
           <div className="card-header">
-            <h3><FiBuilding /> شرکت‌ها ({toPersianDigits(companies.length)})</h3>
+            <h3><FiBriefcase /> شرکت‌ها ({toPersianDigits(companies.length)})</h3>
             <div className="toolbar">
               <div className="search-box">
                 <FiSearch />
