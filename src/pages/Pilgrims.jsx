@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import {
-  FiPlus, FiSearch, FiEdit2, FiTrash2, FiEye, FiPrinter, FiUpload, FiUser, FiX, FiDownload, FiFileText,
+  FiPlus, FiSearch, FiEdit2, FiTrash2, FiEye, FiPrinter, FiUpload, FiUser, FiX, FiDownload, FiFileText, FiShare2, FiImage,
 } from 'react-icons/fi'
 import { useData } from '../contexts/DataContext'
 import { useToast } from '../contexts/ToastContext'
@@ -18,11 +18,11 @@ const EMPTY_FORM = {
   fullName: '', fatherName: '', lastName: '', gender: 'مرد', dob: '',
   phone: '', address: '', passportNumber: '', passportIssueDate: '', passportExpiryDate: '',
   travelType: 'عمره', caravanNumber: '', status: 'در انتظار', photo: '', familyGroup: '',
-  packagePrice: '', stayDuration: '', currency: 'افغانی',
+  packagePrice: '', stayDuration: '', currency: 'افغانی', companyId: '',
 }
 
 export default function Pilgrims() {
-  const { pilgrims, addPilgrim, updatePilgrim, deletePilgrim } = useData()
+  const { pilgrims, addPilgrim, updatePilgrim, deletePilgrim, companies } = useData()
   const { showToast } = useToast()
   const { can } = useAuth()
 
@@ -270,6 +270,45 @@ export default function Pilgrims() {
     return arr.includes(val) ? arr.filter((v) => v !== val) : [...arr, val]
   }
 
+  async function shareExport(rows, format) {
+    if (rows.length === 0) { showToast('داده‌ای برای اشتراک وجود ندارد', 'error'); return }
+    const { columns, rows: data } = buildExportData(rows)
+    let blob
+    if (format === 'excel') {
+      const { default: ExcelJS } = await import('exceljs')
+      const workbook = new ExcelJS.Workbook()
+      const ws = workbook.addWorksheet('زائران')
+      ws.addRow(columns)
+      data.forEach((r) => ws.addRow(columns.map((c) => r[c])))
+      const buf = await workbook.xlsx.writeBuffer()
+      blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+    } else {
+      const url = await previewPdfBlob({
+        title: 'فهرست زائران', columns,
+        rows: data.map((r) => Object.values(r)),
+      })
+      const resp = await fetch(url)
+      blob = await resp.blob()
+      URL.revokeObjectURL(url)
+    }
+    const file = new File([blob], `zayeran.${format === 'excel' ? 'xlsx' : 'pdf'}`, { type: blob.type })
+    if (navigator.share && navigator.canShare({ files: [file] })) {
+      navigator.share({ files: [file], title: 'فهرست زائران' }).catch(() => {})
+    } else {
+      showToast('مرورگر شما از اشتراک فایل پشتیبانی نمی‌کند', 'error')
+    }
+  }
+
+  function downloadPhoto(p) {
+    if (!p.photo) { showToast('عکسی برای دانلود وجود ندارد', 'error'); return }
+    const a = document.createElement('a')
+    a.href = p.photo
+    a.download = `${p.fullName}-${p.lastName}.jpg`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+  }
+
   return (
     <div>
       <div className="card">
@@ -407,16 +446,16 @@ export default function Pilgrims() {
               <div className="form-grid">
                 <div className="form-field">
                   <label>نام</label>
-                  <input className="text-input" value={form.fullName} onChange={(e) => setForm(idx, { fullName: e.target.value })} />
+                  <input className="text-input" value={form.fullName} onChange={(e) => setForm(idx, { fullName: e.target.value })} placeholder="مثال: محمد" />
                   {errorsList[idx]?.fullName && <span className="error-text">{errorsList[idx].fullName}</span>}
                 </div>
                 <div className="form-field">
                   <label>نام پدر</label>
-                  <input className="text-input" value={form.fatherName} onChange={(e) => setForm(idx, { fatherName: e.target.value })} />
+                  <input className="text-input" value={form.fatherName} onChange={(e) => setForm(idx, { fatherName: e.target.value })} placeholder="مثال: احمد" />
                 </div>
                 <div className="form-field">
                   <label>نام خانوادگی</label>
-                  <input className="text-input" value={form.lastName} onChange={(e) => setForm(idx, { lastName: e.target.value })} />
+                  <input className="text-input" value={form.lastName} onChange={(e) => setForm(idx, { lastName: e.target.value })} placeholder="مثال: حسینی" />
                   {errorsList[idx]?.lastName && <span className="error-text">{errorsList[idx].lastName}</span>}
                 </div>
                 <div className="form-field">
@@ -428,25 +467,25 @@ export default function Pilgrims() {
                 </div>
                 <div className="form-field">
                   <label>تاریخ تولد</label>
-                  <input type="date" className="date-input" value={form.dob} onChange={(e) => setForm(idx, { dob: e.target.value })} />
+                  <input type="date" className="date-input" value={form.dob} onChange={(e) => setForm(idx, { dob: e.target.value })} placeholder="تاریخ تولد" />
                 </div>
                 <div className="form-field">
                   <label>شماره تماس</label>
-                  <input className="text-input" value={form.phone} onChange={(e) => setForm(idx, { phone: e.target.value })} />
+                  <input className="text-input" value={form.phone} onChange={(e) => setForm(idx, { phone: e.target.value })} placeholder="مثال: 0700123456" />
                   {errorsList[idx]?.phone && <span className="error-text">{errorsList[idx].phone}</span>}
                 </div>
                 <div className="form-field full">
                   <label>آدرس</label>
-                  <input className="text-input" value={form.address} onChange={(e) => setForm(idx, { address: e.target.value })} />
+                  <input className="text-input" value={form.address} onChange={(e) => setForm(idx, { address: e.target.value })} placeholder="مثال: کابل، افغانستان" />
                 </div>
                 <div className="form-field">
                   <label>شماره گذرنامه</label>
-                  <input className="text-input" value={form.passportNumber} onChange={(e) => setForm(idx, { passportNumber: e.target.value })} />
+                  <input className="text-input" value={form.passportNumber} onChange={(e) => setForm(idx, { passportNumber: e.target.value })} placeholder="مثال: P12345678" />
                   {errorsList[idx]?.passportNumber && <span className="error-text">{errorsList[idx].passportNumber}</span>}
                 </div>
                 <div className="form-field">
                   <label>شماره کاروان</label>
-                  <input className="text-input" value={form.caravanNumber} onChange={(e) => setForm(idx, { caravanNumber: e.target.value })} />
+                  <input className="text-input" value={form.caravanNumber} onChange={(e) => setForm(idx, { caravanNumber: e.target.value })} placeholder="مثال: C-101" />
                 </div>
                 <div className="form-field">
                   <label>تاریخ صدور گذرنامه</label>
@@ -486,6 +525,13 @@ export default function Pilgrims() {
                     <option value="لغو شده">لغو شده</option>
                   </select>
                 </div>
+                <div className="form-field">
+                  <label>شرکت</label>
+                  <select className="select-input" value={form.companyId} onChange={(e) => setForm(idx, { companyId: e.target.value })}>
+                    <option value="">بدون شرکت</option>
+                    {companies.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                </div>
               </div>
             </div>
           ))}
@@ -502,8 +548,13 @@ export default function Pilgrims() {
         {viewItem && (
           <div>
             <div style={{ display: 'flex', gap: 16, alignItems: 'center', marginBottom: 18 }}>
-              <div className="profile-photo">
+              <div className="profile-photo" style={{ position: 'relative' }}>
                 {viewItem.photo ? <img src={viewItem.photo} alt="" /> : <FiUser />}
+                {viewItem.photo && (
+                  <button onClick={() => downloadPhoto(viewItem)} className="btn btn-icon" style={{ position: 'absolute', bottom: -4, insetInlineEnd: -4, width: 28, height: 28, borderRadius: '50%', background: 'var(--color-surface)', border: '1px solid var(--color-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }} title="دانلود عکس">
+                    <FiImage size={14} />
+                  </button>
+                )}
               </div>
               <div>
                 <div className="fw-bold" style={{ fontSize: 16 }}>{viewItem.fullName} {viewItem.lastName}</div>
@@ -535,6 +586,7 @@ export default function Pilgrims() {
           <>
             <button className="btn btn-outline" onClick={() => setExportFormat(null)}>انصراف</button>
             {exportFormat === 'pdf' && <button className="btn btn-outline" onClick={generatePreview}><FiFileText /> پیش‌نمایش</button>}
+            <button className="btn btn-outline" onClick={() => shareExport(getFilteredRows(), exportFormat)}><FiShare2 /> اشتراک</button>
             <button className="btn btn-primary" onClick={executeExport}><FiDownload /> دانلود</button>
           </>
         }

@@ -4,7 +4,7 @@ import { storage, KEYS } from '../utils/storage'
 const APPEARANCE_KEY = 'hums_appearance'
 
 function loadAppearance() {
-  return storage.get(APPEARANCE_KEY, { colorTheme: 'default', sidebarStyle: 'gradient' })
+  return storage.get(APPEARANCE_KEY, { colorTheme: 'default', sidebarStyle: 'gradient', fontSize: 'medium', fontWeight: 'normal', fontFamily: 'vazir' })
 }
 
 const ThemeContext = createContext(null)
@@ -21,6 +21,9 @@ export function ThemeProvider({ children }) {
   useEffect(() => {
     document.documentElement.setAttribute('data-color-theme', appearance.colorTheme)
     document.documentElement.setAttribute('data-sidebar-style', appearance.sidebarStyle)
+    document.documentElement.setAttribute('data-font-size', appearance.fontSize || 'medium')
+    document.documentElement.setAttribute('data-font-weight', appearance.fontWeight || 'normal')
+    document.documentElement.setAttribute('data-font-family', appearance.fontFamily || 'vazir')
     storage.set(APPEARANCE_KEY, appearance)
   }, [appearance])
 

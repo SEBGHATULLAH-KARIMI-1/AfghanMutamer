@@ -11,6 +11,7 @@ const KEYS = {
   THEME: 'hums_theme',
   ROLES: 'hums_roles',
   SEEDED: 'hums_seeded_v1',
+  COMPANIES: 'hums_companies',
 }
 
 function read(key, fallback) {

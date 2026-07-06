@@ -72,6 +72,32 @@ ul { margin: 0; padding: 0; list-style: none; }
   --shadow-xl: 0 20px 60px rgba(0, 0, 0, 0.5);
 }
 
+/* ===================== تنظیمات فونت ===================== */
+[data-font-size='small'] { --font-xs: 10px; --font-sm: 11px; --font-base: 12px; --font-lg: 13.5px; --font-xl: 16px; --font-2xl: 19px; }
+[data-font-size='medium'] { --font-xs: 11.5px; --font-sm: 12.5px; --font-base: 13.5px; --font-lg: 15px; --font-xl: 18px; --font-2xl: 22px; }
+[data-font-size='large'] { --font-xs: 13px; --font-sm: 14px; --font-base: 15px; --font-lg: 17px; --font-xl: 20px; --font-2xl: 25px; }
+[data-font-size='xlarge'] { --font-xs: 14.5px; --font-sm: 15.5px; --font-base: 16.5px; --font-lg: 19px; --font-xl: 22px; --font-2xl: 28px; }
+
+[data-font-weight='normal'] body { font-weight: 400; }
+[data-font-weight='medium'] body { font-weight: 500; }
+[data-font-weight='semibold'] body { font-weight: 600; }
+[data-font-weight='bold'] body { font-weight: 700; }
+[data-font-weight='normal'] .fw-bold { font-weight: 600; }
+[data-font-weight='medium'] .fw-bold { font-weight: 700; }
+[data-font-weight='semibold'] .fw-bold { font-weight: 800; }
+[data-font-weight='bold'] .fw-bold { font-weight: 900; }
+[data-font-weight='medium'] .card-header h3,
+[data-font-weight='medium'] .navbar-title { font-weight: 700; }
+[data-font-weight='semibold'] .card-header h3,
+[data-font-weight='semibold'] .navbar-title { font-weight: 700; }
+[data-font-weight='bold'] .card-header h3,
+[data-font-weight='bold'] .navbar-title { font-weight: 800; }
+
+[data-font-family='vazir'] body, [data-font-family='vazir'] button, [data-font-family='vazir'] input, [data-font-family='vazir'] select, [data-font-family='vazir'] textarea { font-family: 'Vazirmatn', Tahoma, sans-serif; }
+[data-font-family='iransans'] body, [data-font-family='iransans'] button, [data-font-family='iransans'] input, [data-font-family='iransans'] select, [data-font-family='iransans'] textarea { font-family: 'IRANSans', Tahoma, sans-serif; }
+[data-font-family='iranyekan'] body, [data-font-family='iranyekan'] button, [data-font-family='iranyekan'] input, [data-font-family='iranyekan'] select, [data-font-family='iranyekan'] textarea { font-family: 'IRANYekan', Tahoma, sans-serif; }
+[data-font-family='shabnam'] body, [data-font-family='shabnam'] button, [data-font-family='shabnam'] input, [data-font-family='shabnam'] select, [data-font-family='shabnam'] textarea { font-family: 'Shabnam', Tahoma, sans-serif; }
+
 /* ===================== رنگ‌بندی‌های جایگزین ===================== */
 [data-color-theme='blue'] {
   --color-primary: #1A365D;
@@ -119,6 +145,42 @@ ul { margin: 0; padding: 0; list-style: none; }
 }
 [data-theme='dark'][data-color-theme='slate'] {
   --color-border: rgba(148, 163, 184, 0.18);
+}
+
+[data-color-theme='rose'] {
+  --color-primary: #881337;
+  --color-primary-light: #BE1853;
+  --color-primary-dark: #4C0519;
+  --color-secondary: #FBCFE8;
+  --color-secondary-light: #FCE7F3;
+  --color-border: rgba(136, 19, 55, 0.12);
+}
+[data-theme='dark'][data-color-theme='rose'] {
+  --color-border: rgba(251, 207, 232, 0.18);
+}
+
+[data-color-theme='navy'] {
+  --color-primary: #1E3A5F;
+  --color-primary-light: #2D5A8E;
+  --color-primary-dark: #0F2440;
+  --color-secondary: #E8C547;
+  --color-secondary-light: #F0D86A;
+  --color-border: rgba(30, 58, 95, 0.12);
+}
+[data-theme='dark'][data-color-theme='navy'] {
+  --color-border: rgba(232, 197, 71, 0.18);
+}
+
+[data-color-theme='forest'] {
+  --color-primary: #2D5016;
+  --color-primary-light: #4A7C28;
+  --color-primary-dark: #1A300B;
+  --color-secondary: #E67E22;
+  --color-secondary-light: #F0A04B;
+  --color-border: rgba(45, 80, 22, 0.12);
+}
+[data-theme='dark'][data-color-theme='forest'] {
+  --color-border: rgba(230, 126, 34, 0.18);
 }
 
 /* ===================== الگوی هندسی اسلامی ===================== */

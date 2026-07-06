@@ -225,6 +225,7 @@ export default function Expenses() {
               value={dateFrom}
               onChange={(e) => setDateFrom(e.target.value)}
               title="از تاریخ"
+              placeholder="از تاریخ"
             />
             <input
               type="date"
@@ -232,6 +233,7 @@ export default function Expenses() {
               value={dateTo}
               onChange={(e) => setDateTo(e.target.value)}
               title="تا تاریخ"
+              placeholder="تا تاریخ"
             />
           </div>
         </div>
@@ -383,7 +385,7 @@ export default function Expenses() {
                   value={form.amount}
                   onChange={(e) => setForm({ ...form, amount: e.target.value })}
                 />
-                <select className="currency-select" value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value })}>
+                <select className="currency-select" title="انتخاب ارز" value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value })}>
                   <option value="افغانی">افغانی</option>
                   <option value="دالر">دالر</option>
                 </select>

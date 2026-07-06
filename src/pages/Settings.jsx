@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect } from 'react'
-import { FiSave, FiUpload, FiDownload, FiMoon, FiSun, FiUserPlus, FiKey, FiDroplet, FiShield, FiTrash2, FiEdit2, FiPlus, FiX } from 'react-icons/fi'
+import { FiSave, FiUpload, FiDownload, FiMoon, FiSun, FiUserPlus, FiKey, FiDroplet, FiShield, FiTrash2, FiEdit2, FiPlus, FiX, FiType } from 'react-icons/fi'
 import { useData } from '../contexts/DataContext'
 import { useTheme } from '../contexts/ThemeContext'
 import { useToast } from '../contexts/ToastContext'
@@ -13,12 +13,36 @@ const COLOR_THEMES = [
   { key: 'emerald', label: 'زمرد / کهربایی', colors: ['#064E3B', '#F59E0B'] },
   { key: 'burgundy', label: 'یاقوتی / طلایی', colors: ['#7B1A1A', '#D4AF37'] },
   { key: 'slate', label: 'تیره / نقره‌ای', colors: ['#334155', '#94A3B8'] },
+  { key: 'rose', label: 'گلی / صورتی', colors: ['#881337', '#FBCFE8'] },
+  { key: 'navy', label: 'دریایی / طلایی', colors: ['#1E3A5F', '#E8C547'] },
+  { key: 'forest', label: 'جنگی / نارنجی', colors: ['#2D5016', '#E67E22'] },
 ]
 
 const SIDEBAR_STYLES = [
   { key: 'gradient', label: 'گرادینت' },
   { key: 'solid', label: 'تک‌رنگ' },
   { key: 'glass', label: 'شیشه‌ای' },
+]
+
+const FONT_SIZES = [
+  { key: 'small', label: 'کوچک', desc: '12px' },
+  { key: 'medium', label: 'متوسط', desc: '13.5px' },
+  { key: 'large', label: 'بزرگ', desc: '15px' },
+  { key: 'xlarge', label: 'خیلی بزرگ', desc: '16.5px' },
+]
+
+const FONT_WEIGHTS = [
+  { key: 'normal', label: 'نازک', desc: '400' },
+  { key: 'medium', label: 'متوسط', desc: '500' },
+  { key: 'semibold', label: 'نیمه‌پررنگ', desc: '600' },
+  { key: 'bold', label: 'پررنگ', desc: '700' },
+]
+
+const FONT_FAMILIES = [
+  { key: 'vazir', label: 'وزیرمتن', desc: 'Vazirmatn' },
+  { key: 'iransans', label: 'ایران سنس', desc: 'IRANSans' },
+  { key: 'iranyekan', label: 'ایران یکان', desc: 'IRANYekan' },
+  { key: 'shabnam', label: 'شبنم', desc: 'Shabnam' },
 ]
 
 const PAGE_LABELS = {
@@ -28,6 +52,7 @@ const PAGE_LABELS = {
   reports: 'گزارش‌ها',
   employees: 'کارمندان',
   expenses: 'مصارف',
+  companies: 'شرکت‌ها',
   settings: 'تنظیمات',
 }
 
@@ -46,6 +71,7 @@ const DEFAULT_PERMISSIONS = {
   reports: { view: false, export: false },
   employees: { view: false, create: false, edit: false, delete: false },
   expenses: { view: false, create: false, edit: false, delete: false },
+  companies: { view: false, create: false, edit: false, delete: false },
   settings: { view: false },
 }
 
@@ -243,12 +269,12 @@ export default function Settings() {
               <button className="btn btn-outline btn-sm" onClick={() => fileInputRef.current.click()}><FiUpload /> آپلود لوگو</button>
               <input ref={fileInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleLogoUpload} />
             </div>
-            <div className="form-grid">
-              <div className="form-field"><label>نام شرکت</label><input className="text-input" value={form.companyName || ''} onChange={(e) => setForm({ ...form, companyName: e.target.value })} /></div>
-              <div className="form-field"><label>شماره تماس</label><input className="text-input" value={form.phone || ''} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></div>
-              <div className="form-field full"><label>آدرس</label><input className="text-input" value={form.address || ''} onChange={(e) => setForm({ ...form, address: e.target.value })} /></div>
-              <div className="form-field"><label>ایمیل</label><input type="email" className="text-input" value={form.email || ''} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
-            </div>
+              <div className="form-grid">
+                <div className="form-field"><label>نام شرکت</label><input className="text-input" value={form.companyName || ''} onChange={(e) => setForm({ ...form, companyName: e.target.value })} placeholder="مثال: شرکت خدمات حج الفردوس" /></div>
+                <div className="form-field"><label>شماره تماس</label><input className="text-input" value={form.phone || ''} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="مثال: 0700123456" /></div>
+                <div className="form-field full"><label>آدرس</label><input className="text-input" value={form.address || ''} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder="مثال: کابل، افغانستان" /></div>
+                <div className="form-field"><label>ایمیل</label><input type="email" className="text-input" value={form.email || ''} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="مثال: info@company.com" /></div>
+              </div>
             <button className="btn btn-primary mt-3" onClick={handleSaveGeneral}><FiSave /> ذخیره تغییرات</button>
           </div>
         </div>
@@ -297,6 +323,66 @@ export default function Settings() {
                     }}
                   >
                     {s.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="mb-3" style={{ marginTop: 18 }}>
+              <div className="export-label mb-1"><FiType /> اندازه قلم</div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {FONT_SIZES.map((s) => (
+                  <button
+                    key={s.key}
+                    onClick={() => updateAppearance({ fontSize: s.key })}
+                    style={{
+                      padding: '8px 14px', borderRadius: 10, cursor: 'pointer', fontSize: 12,
+                      border: appearance.fontSize === s.key ? '2px solid var(--color-primary)' : '2px solid var(--color-border)',
+                      background: appearance.fontSize === s.key ? 'var(--color-surface-2)' : 'var(--color-surface)',
+                      color: 'var(--color-text)', fontWeight: 600,
+                    }}
+                  >
+                    {s.label}
+                    <span style={{ display: 'block', fontSize: 10, color: 'var(--color-text-muted)', fontWeight: 400, marginTop: 2 }}>{s.desc}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="mb-3">
+              <div className="export-label mb-1">ضخامت قلم</div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {FONT_WEIGHTS.map((w) => (
+                  <button
+                    key={w.key}
+                    onClick={() => updateAppearance({ fontWeight: w.key })}
+                    style={{
+                      padding: '8px 14px', borderRadius: 10, cursor: 'pointer', fontSize: 12,
+                      border: appearance.fontWeight === w.key ? '2px solid var(--color-primary)' : '2px solid var(--color-border)',
+                      background: appearance.fontWeight === w.key ? 'var(--color-surface-2)' : 'var(--color-surface)',
+                      color: 'var(--color-text)', fontWeight: w.key === 'bold' ? 700 : w.key === 'semibold' ? 600 : w.key === 'medium' ? 500 : 400,
+                    }}
+                  >
+                    {w.label}
+                    <span style={{ display: 'block', fontSize: 10, color: 'var(--color-text-muted)', fontWeight: 400, marginTop: 2 }}>{w.desc}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="mb-3">
+              <div className="export-label mb-1">فونت</div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {FONT_FAMILIES.map((f) => (
+                  <button
+                    key={f.key}
+                    onClick={() => updateAppearance({ fontFamily: f.key })}
+                    style={{
+                      padding: '8px 14px', borderRadius: 10, cursor: 'pointer', fontSize: 12,
+                      border: appearance.fontFamily === f.key ? '2px solid var(--color-primary)' : '2px solid var(--color-border)',
+                      background: appearance.fontFamily === f.key ? 'var(--color-surface-2)' : 'var(--color-surface)',
+                      color: 'var(--color-text)', fontWeight: 600,
+                    }}
+                  >
+                    {f.label}
+                    <span style={{ display: 'block', fontSize: 10, color: 'var(--color-text-muted)', fontWeight: 400, marginTop: 2 }}>{f.desc}</span>
                   </button>
                 ))}
               </div>
@@ -459,9 +545,9 @@ export default function Settings() {
           </>
         }
       >
-        <div className="form-field mb-2"><label>نام کامل</label><input className="text-input" value={newUser.name} onChange={(e) => setNewUser({ ...newUser, name: e.target.value })} /></div>
-        <div className="form-field mb-2"><label>نام کاربری</label><input className="text-input" value={newUser.username} onChange={(e) => setNewUser({ ...newUser, username: e.target.value })} /></div>
-        <div className="form-field mb-2"><label>رمز عبور</label><input type="password" className="text-input" value={newUser.password} onChange={(e) => setNewUser({ ...newUser, password: e.target.value })} /></div>
+        <div className="form-field mb-2"><label>نام کامل</label><input className="text-input" value={newUser.name} onChange={(e) => setNewUser({ ...newUser, name: e.target.value })} placeholder="مثال: احمد محمدی" /></div>
+        <div className="form-field mb-2"><label>نام کاربری</label><input className="text-input" value={newUser.username} onChange={(e) => setNewUser({ ...newUser, username: e.target.value })} placeholder="مثال: ahmad" /></div>
+        <div className="form-field mb-2"><label>رمز عبور</label><input type="password" className="text-input" value={newUser.password} onChange={(e) => setNewUser({ ...newUser, password: e.target.value })} placeholder="حداقل ۶ کاراکتر" /></div>
         <div className="form-field"><label>نقش</label>
           <select className="select-input" value={newUser.role} onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}>
             <option value="">انتخاب نقش</option>

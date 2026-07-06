@@ -60,6 +60,20 @@ export default function Payments() {
     }, 0)
   const remainingBalance = Math.max(0, totalExpected - paidForPriced)
 
+  // ─── بدهکاران: زائرانی که باقی حساب دارند ───
+  const debtors = useMemo(() => {
+    return pilgrims
+      .filter((p) => Number(p.packagePrice || 0) > 0)
+      .map((p) => {
+        const pPayments = payments.filter((pm) => pm.pilgrimId === p.id)
+        const totalPaid = pPayments.reduce((s, pm) => s + Number(pm.amount || 0), 0)
+        const remaining = Number(p.packagePrice) - totalPaid
+        return { ...p, totalPaid, remaining, paymentCount: pPayments.length }
+      })
+      .filter((p) => p.remaining > 0)
+      .sort((a, b) => b.remaining - a.remaining)
+  }, [pilgrims, payments])
+
   function openAdd() {
     setForm({ ...EMPTY_FORM, receiptNumber: 'RC-' + Math.floor(10000 + Math.random() * 89999) })
     setEditId(null)
@@ -123,6 +137,39 @@ export default function Payments() {
       </div>
 
 
+      {/* ─── جدول بدهکاران ─── */}
+      {debtors.length > 0 && (
+        <div className="card" style={{ marginBottom: 22 }}>
+          <div className="card-header">
+            <h3 style={{ color: 'var(--danger)' }}>بدهکاران — باقی مانده حساب ({toPersianDigits(debtors.length)} نفر)</h3>
+          </div>
+          <div className="table-wrapper">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>نام زائر</th>
+                  <th>قیمت بسته</th>
+                  <th>پرداخت شده</th>
+                  <th>باقی مانده</th>
+                  <th>تعداد پرداخت</th>
+                </tr>
+              </thead>
+              <tbody>
+                {debtors.map((d) => (
+                  <tr key={d.id}>
+                    <td>{d.fullName} {d.lastName}</td>
+                    <td>{Number(d.packagePrice).toLocaleString()} {d.currency || 'افغانی'}</td>
+                    <td style={{ color: 'var(--success)' }}>{d.totalPaid.toLocaleString()} {d.currency || 'افغانی'}</td>
+                    <td style={{ color: 'var(--danger)', fontWeight: 700 }}>{d.remaining.toLocaleString()} {d.currency || 'افغانی'}</td>
+                    <td>{toPersianDigits(d.paymentCount)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       <div className="card">
         <div className="card-header">
           <h3>فهرست پرداخت‌ها ({toPersianDigits(dateFiltered.length)})</h3>
@@ -131,8 +178,8 @@ export default function Payments() {
               <FiSearch />
               <input placeholder="جستجو بر اساس شماره فیش یا نام زائر..." value={table.search} onChange={(e) => table.setSearch(e.target.value)} />
             </div>
-            <input type="date" className="date-input" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} title="از تاریخ" />
-            <input type="date" className="date-input" value={dateTo} onChange={(e) => setDateTo(e.target.value)} title="تا تاریخ" />
+            <input type="date" className="date-input" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} title="از تاریخ" placeholder="از تاریخ" />
+            <input type="date" className="date-input" value={dateTo} onChange={(e) => setDateTo(e.target.value)} title="تا تاریخ" placeholder="تا تاریخ" />
             <select className="select-input" onChange={(e) => table.setFilter('status', e.target.value)}>
               <option value="all">همه وضعیت‌ها</option>
               <option value="پرداخت شده">پرداخت شده</option>
@@ -169,7 +216,13 @@ export default function Payments() {
                     <td><span className={`badge ${p.status === 'پرداخت شده' ? 'badge-success' : 'badge-warning'}`}>{p.status}</span></td>
                     <td>
                       <div className="row-actions">
-                        <button className="print-btn" onClick={() => exportReceiptToPDF(p, settings)} title="چاپ فیش / PDF"><FiPrinter /></button>
+                        <button className="print-btn" onClick={() => {
+                          const pilgrim = pilgrims.find((x) => x.id === p.pilgrimId)
+                          const pilgrimPayments = payments.filter((pm) => pm.pilgrimId === p.pilgrimId)
+                          const totalPaid = pilgrimPayments.reduce((s, pm) => s + Number(pm.amount || 0), 0)
+                          const remaining = pilgrim ? Number(pilgrim.packagePrice || 0) - totalPaid : 0
+                          exportReceiptToPDF(p, settings, remaining > 0 ? remaining : undefined)
+                        }} title="چاپ فیش / PDF"><FiPrinter /></button>
                         {can('payments', 'edit') && <button className="edit-btn" onClick={() => openEdit(p)} title="ویرایش"><FiEdit2 /></button>}
                         {can('payments', 'delete') && <button className="delete-btn" onClick={() => setConfirmId(p.id)} title="حذف"><FiTrash2 /></button>}
                       </div>
@@ -204,7 +257,7 @@ export default function Payments() {
             <div className="form-field">
               <label>زائر</label>
               <select className="select-input" value={form.pilgrimId} onChange={(e) => handlePilgrimChange(e.target.value)}>
-                <option value="">انتخاب کنید...</option>
+                <option value="">انتخاب زائر...</option>
                 {pilgrims.map((p) => (
                   <option key={p.id} value={p.id}>{p.fullName} {p.lastName}</option>
                 ))}
@@ -233,7 +286,7 @@ export default function Payments() {
             <div className="form-field">
               <label>مبلغ</label>
               <div className="input-with-currency">
-                <input type="number" className="text-input" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} />
+                <input type="number" className="text-input" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} placeholder="مبلغ پرداختی" />
                 <select className="currency-select" value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value, exchangeRate: '' })}>
                   <option value="افغانی">افغانی</option>
                   <option value="دالر">دالر</option>
@@ -243,7 +296,7 @@ export default function Payments() {
               {form.currency === 'افغانی' && (
                 <div style={{ marginTop: 6 }}>
                   <label style={{ fontSize: 11.5, color: '#667085' }}>نرخ برابری دالر (هر 1 دالر = ? افغانی)</label>
-                  <input type="number" className="text-input" style={{ marginTop: 4 }} placeholder="مثال: 70" value={form.exchangeRate} onChange={(e) => setForm({ ...form, exchangeRate: e.target.value })} />
+                  <input type="number" className="text-input" style={{ marginTop: 4 }} placeholder="مثال: 70 (نرخ برابری)" value={form.exchangeRate} onChange={(e) => setForm({ ...form, exchangeRate: e.target.value })} />
                   {form.exchangeRate && form.amount && (
                     <div style={{ fontSize: 11.5, color: '#166534', marginTop: 4 }}>
                       معادل: <strong>{(Number(form.amount) / Number(form.exchangeRate)).toLocaleString()} دالر</strong>
@@ -274,7 +327,7 @@ export default function Payments() {
             </div>
             <div className="form-field full">
               <label>توضیحات</label>
-              <input className="text-input" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+              <input className="text-input" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="توضیحات پرداخت..." />
             </div>
           </div>
         </form>

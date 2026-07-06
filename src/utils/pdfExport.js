@@ -60,7 +60,7 @@ export async function previewPdfBlob({ title, columns, rows }) {
   return URL.createObjectURL(blob)
 }
 
-export async function exportReceiptToPDF(payment, company) {
+export async function exportReceiptToPDF(payment, company, remainingBalance) {
   const currency = payment.currency || 'افغانی'
   const infoRows = [
     ['شماره فیش', payment.receiptNumber],
@@ -71,6 +71,9 @@ export async function exportReceiptToPDF(payment, company) {
     ['وضعیت', payment.status],
     ['توضیحات', payment.description || '-'],
   ]
+  if (remainingBalance !== undefined && Number(remainingBalance) > 0) {
+    infoRows.push(['باقی مانده حساب', Number(remainingBalance).toLocaleString() + ' ' + currency])
+  }
   const html = `
     <div style="width:400px;margin:0 auto;padding:20px;font-family:Vazirmatn,Tahoma,sans-serif;text-align:center">
       <div style="background:#0F5132;color:#fff;padding:12px 16px;border-radius:8px 8px 0 0">

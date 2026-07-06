@@ -10,6 +10,7 @@ export function DataProvider({ children }) {
   const [employees, setEmployees] = useState(() => storage.getAll(KEYS.EMPLOYEES))
   const [logs, setLogs] = useState(() => storage.getAll(KEYS.LOGS))
   const [settings, setSettings] = useState(() => storage.get(KEYS.SETTINGS, {}))
+  const [companies, setCompanies] = useState(() => storage.getAll(KEYS.COMPANIES))
 
   const auth = useAuth()
 
@@ -77,6 +78,24 @@ export function DataProvider({ children }) {
     writeLog('حذف کارمند', `کارمند حذف شد (ID: ${id})`)
   }
 
+  // ---------- Companies ----------
+  function addCompany(data) {
+    const item = storage.add(KEYS.COMPANIES, data)
+    setCompanies(storage.getAll(KEYS.COMPANIES))
+    writeLog('افزودن شرکت', `شرکت "${data.name}" اضافه شد`)
+    return item
+  }
+  function updateCompany(id, patch) {
+    storage.update(KEYS.COMPANIES, id, patch)
+    setCompanies(storage.getAll(KEYS.COMPANIES))
+    writeLog('ویرایش شرکت', `اطلاعات شرکت ویرایش شد (ID: ${id})`)
+  }
+  function deleteCompany(id) {
+    storage.removeItem(KEYS.COMPANIES, id)
+    setCompanies(storage.getAll(KEYS.COMPANIES))
+    writeLog('حذف شرکت', `شرکت حذف شد (ID: ${id})`)
+  }
+
   // ---------- Settings ----------
   function updateSettings(patch) {
     const newSettings = { ...settings, ...patch }
@@ -91,12 +110,14 @@ export function DataProvider({ children }) {
     setEmployees(storage.getAll(KEYS.EMPLOYEES))
     setLogs(storage.getAll(KEYS.LOGS))
     setSettings(storage.get(KEYS.SETTINGS, {}))
+    setCompanies(storage.getAll(KEYS.COMPANIES))
   }
 
   const value = {
     pilgrims, addPilgrim, updatePilgrim, deletePilgrim,
     payments, addPayment, updatePayment, deletePayment,
     employees, addEmployee, updateEmployee, deleteEmployee,
+    companies, addCompany, updateCompany, deleteCompany,
     logs, settings, updateSettings, refreshAll,
   }
 

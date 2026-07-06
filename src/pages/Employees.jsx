@@ -165,7 +165,7 @@ export default function Employees() {
             </div>
             <div className="form-field">
               <label>نام کامل</label>
-              <input className="text-input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+              <input className="text-input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="مثال: احمد محمدی" />
               {errors.name && <span className="error-text">{errors.name}</span>}
             </div>
             <div className="form-field">
@@ -179,17 +179,17 @@ export default function Employees() {
             </div>
             <div className="form-field">
               <label>شماره تماس</label>
-              <input className="text-input" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+              <input className="text-input" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="مثال: 0700123456" />
               {errors.phone && <span className="error-text">{errors.phone}</span>}
             </div>
             <div className="form-field">
               <label>ایمیل</label>
-              <input type="email" className="text-input" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+              <input type="email" className="text-input" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="مثال: name@company.com" />
             </div>
             <div className="form-field">
               <label>معاش</label>
               <div className="input-with-currency">
-                <input type="number" className="text-input" value={form.salary} onChange={(e) => setForm({ ...form, salary: e.target.value })} />
+                <input type="number" className="text-input" value={form.salary} onChange={(e) => setForm({ ...form, salary: e.target.value })} placeholder="مبلغ معاش" />
                 <select className="currency-select" value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value })}>
                   <option value="افغانی">افغانی</option>
                   <option value="دالر">دالر</option>

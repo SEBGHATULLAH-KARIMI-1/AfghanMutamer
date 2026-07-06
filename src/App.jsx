@@ -15,6 +15,7 @@ import Payments from './pages/Payments'
 import Reports from './pages/Reports'
 import Employees from './pages/Employees'
 import Expenses from './pages/Expenses'
+import Companies from './pages/Companies'
 import Settings from './pages/Settings'
 
 export default function App() {
@@ -41,6 +42,7 @@ export default function App() {
                   <Route path="reports" element={<RequirePermission page="reports"><Reports /></RequirePermission>} />
                   <Route path="employees" element={<RequirePermission page="employees"><Employees /></RequirePermission>} />
                   <Route path="expenses" element={<RequirePermission page="expenses"><Expenses /></RequirePermission>} />
+                  <Route path="companies" element={<RequirePermission page="companies"><Companies /></RequirePermission>} />
                   <Route path="settings" element={<RequirePermission page="settings"><Settings /></RequirePermission>} />
                 </Route>
               </Routes>

@@ -121,6 +121,7 @@ function getDefaultRoles() {
         reports: { view: true, export: true },
         employees: { view: true, create: true, edit: true, delete: true },
         expenses: { view: true, create: true, edit: true, delete: true },
+        companies: { view: true, create: true, edit: true, delete: true },
         settings: { view: true },
       },
     },
