@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { HashRouter, Routes, Route } from 'react-router-dom'
 import { AuthProvider } from './contexts/AuthContext'
 import { DataProvider } from './contexts/DataContext'
 import { ThemeProvider } from './contexts/ThemeContext'
@@ -24,7 +24,7 @@ export default function App() {
       <ToastProvider>
         <AuthProvider>
           <DataProvider>
-            <BrowserRouter>
+            <HashRouter>
               <Routes>
                 <Route path="/login" element={<Login />} />
                 <Route path="/forgot-password" element={<ForgotPassword />} />
@@ -46,7 +46,7 @@ export default function App() {
                   <Route path="settings" element={<RequirePermission page="settings"><Settings /></RequirePermission>} />
                 </Route>
               </Routes>
-            </BrowserRouter>
+            </HashRouter>
           </DataProvider>
         </AuthProvider>
       </ToastProvider>
