@@ -65,7 +65,7 @@ export function AuthProvider({ children }) {
   function can(page, action = 'view') {
     if (!permissions) return false
     const pagePerms = permissions[page]
-    if (!pagePerms) return false
+    if (!pagePerms) return true
     return !!pagePerms[action]
   }
 
