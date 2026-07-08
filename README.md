@@ -61,11 +61,6 @@ src/
 4. Commit and push
 5. Go to repo Settings > Pages > Source: **Deploy from a branch**, Branch: `main`, Folder: `/docs`
 
-### Netlify
-1. Run `npm run build`
-2. Upload the `dist/` folder directly, or
-3. Connect the repo with Build command: `npm run build`, Publish directory: `dist`
-
 ## Notes
 - Sample data (pilgrims, payments, employees) is auto-generated on first run.
 - To reset all data, clear the browser's LocalStorage for this domain or use Incognito mode.
