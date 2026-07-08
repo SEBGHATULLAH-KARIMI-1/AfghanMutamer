@@ -1,55 +1,72 @@
-# سیستم مدیریت حج و عمره (Hajj & Umrah Management System)
+# Hajj & Umrah Management System
 
-پنل مدیریت کامل برای شرکت‌های خدماتی حج و عمره — React.js + Vite + React Router + Chart.js + jsPDF + SheetJS.
+A full-featured management panel for Hajj and Umrah service companies — built with React.js + Vite + React Router + Chart.js + jsPDF + SheetJS.
 
-## ویژگی‌ها
-- داشبورد با نمودارها و آماره‌های زنده
-- مدیریت کامل زائران (افزودن، ویرایش، حذف، آپلود عکس، چاپ پروفایل)
-- مدیریت پرداخت‌ها با خروجی فیش PDF
-- گزارش‌گیری با فیلتر زمانی و خروجی PDF / Excel
-- مدیریت کارمندان
-- روزنامچه فعالیت‌ها (Activity Log)
-- تنظیمات عمومی، مدیریت کاربران، پشتیبان‌گیری/بازیابی اطلاعات
-- حالت روشن / تاریک، چیدمان راست‌به‌چپ (RTL) کامل
-- ذخیره‌سازی تمام اطلاعات در LocalStorage مرورگر (داده‌ها بعد از رفرش باقی می‌مانند)
+## Features
+- Dashboard with live charts and statistics
+- Full pilgrim management (add, edit, delete, photo upload, profile print)
+- Payment management with PDF receipt export
+- Reporting with time filters and PDF / Excel export
+- Employee management
+- Expense tracking
+- Companies module with per-company sub-pages (info, pilgrims, payments, receipts)
+- Activity log
+- Role-based access control (RBAC)
+- General settings, user management, backup / restore
+- Light / Dark mode, full RTL layout
+- Multi-currency support (AFN / USD)
+- All data stored in browser LocalStorage (persists across refreshes)
 
-## نصب و اجرا (Setup)
+## Setup
 
 ```bash
-# ۱. وارد پوشه پروژه شوید
-cd E:\system
+# 1. Navigate to the project folder
+cd hajj-umrah-system
 
-# ۲. نصب وابستگی‌ها
+# 2. Install dependencies
 npm install
 
-# ۳. اجرای پروژه در حالت توسعه
+# 3. Run development server
 npm run dev
 
-# ۴. ساخت نسخه نهایی (Production build)
+# 4. Production build
 npm run build
 ```
 
-پس از اجرای `npm run dev`، آدرس `http://localhost:5173` را در مرورگر باز کنید.
+Open `http://localhost:5173` in your browser after running `npm run dev`.
 
-## ورود به سیستم (نمونه)
-- نام کاربری: `admin`
-- رمز عبور: `admin123`
+## Demo Credentials
+- Username: `admin`
+- Password: `admin123`
 
-کاربر دوم نمونه: `accountant` / `acc123`
+Second user: `accountant` / `acc123`
 
-## ساختار پوشه‌ها
+## Project Structure
 ```
 src/
   components/
-    common/      ← اجزای عمومی (مودال، جدول، اسکلتون، ...)
-    layout/      ← سایدبار، نوار بالایی، چیدمان اصلی
+    common/      ← Reusable UI components (Modal, Table, Skeleton, ...)
+    layout/      ← Sidebar, Navbar, main layout
   contexts/      ← Auth, Data, Theme, Toast (Context API)
-  pages/         ← صفحات اصلی برنامه
-  utils/         ← LocalStorage، تاریخ شمسی، خروجی PDF/Excel، داده نمونه
+  pages/         ← Application pages
+  utils/         ← LocalStorage, Jalali date, PDF/Excel export, seed data
 ```
 
-## نکات مهم
-- داده‌های نمونه (زائران، پرداخت‌ها، کارمندان) به صورت خودکار در اولین اجرا تولید می‌شوند.
-- برای پاک‌سازی کامل داده‌ها، Local Storage مرورگر را برای این آدرس خالی کنید یا از حالت Incognito استفاده کنید.
-- مبلغ «باقیمانده تخمینی» در صفحه پرداخت‌ها بر اساس یک هزینه فرضی هر زائر محاسبه شده و قابل تنظیم در فایل `src/pages/Payments.jsx` (متغیر `PACKAGE_COST_ESTIMATE`) است.
-- خروجی PDF با فونت لاتین/عددی تولید می‌شود (jsPDF به صورت پیش‌فرض فونت فارسی ندارد)؛ در صورت نیاز به PDF کاملاً فارسی، باید یک فونت فارسی به jsPDF افزوده شود.
+## Deployment
+
+### GitHub Pages
+1. Run `npm run build`
+2. Copy `dist/` contents to a `docs/` folder
+3. Add a `.nojekyll` file inside `docs/`
+4. Commit and push
+5. Go to repo Settings > Pages > Source: **Deploy from a branch**, Branch: `main`, Folder: `/docs`
+
+### Netlify
+1. Run `npm run build`
+2. Upload the `dist/` folder directly, or
+3. Connect the repo with Build command: `npm run build`, Publish directory: `dist`
+
+## Notes
+- Sample data (pilgrims, payments, employees) is auto-generated on first run.
+- To reset all data, clear the browser's LocalStorage for this domain or use Incognito mode.
+- PDF output uses Latin/numeric fonts by default (jsPDF has no built-in Persian font). For full Persian PDF support, add a Persian font to jsPDF.
