@@ -16,7 +16,7 @@ export default function Login() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault()
     setError('')
     if (!username || !password) {
@@ -24,16 +24,14 @@ export default function Login() {
       return
     }
     setLoading(true)
-    setTimeout(() => {
-      const result = login(username, password)
-      setLoading(false)
-      if (result.success) {
-        showToast('ورود با موفقیت انجام شد', 'success')
-        navigate('/')
-      } else {
-        setError(result.message)
-      }
-    }, 500)
+    const result = await login(username, password)
+    setLoading(false)
+    if (result.success) {
+      showToast('ورود با موفقیت انجام شد', 'success')
+      navigate('/')
+    } else {
+      setError(result.message)
+    }
   }
 
   return (
@@ -77,6 +75,11 @@ export default function Login() {
           </div>
 
           {error && <div className="error-text mb-2">{error}</div>}
+          {loading && (
+            <div className="text-muted mb-2" style={{ fontSize: 12 }}>
+              اگر سرور مدتی استفاده نشده باشد، بیدارشدن آن تا یک دقیقه طول می‌کشد...
+            </div>
+          )}
 
           <button type="submit" className="btn btn-gold btn-block" disabled={loading}>
             <FiLogIn /> {loading ? 'در حال ورود...' : 'ورود به سیستم'}
@@ -85,10 +88,6 @@ export default function Login() {
 
         <div className="forgot-link">
           <Link to="/forgot-password">رمز عبور خود را فراموش کرده‌اید؟</Link>
-        </div>
-
-        <div className="demo-hint">
-          نام کاربری آزمایشی: <b>admin</b> — رمز عبور: <b>admin123</b>
         </div>
       </div>
     </div>

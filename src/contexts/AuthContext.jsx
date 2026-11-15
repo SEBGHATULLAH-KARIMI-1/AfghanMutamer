@@ -1,79 +1,83 @@
-import { createContext, useContext, useState, useMemo } from 'react'
-import { storage, KEYS, generateId } from '../utils/storage'
-
-function resolvePermissions(roleName) {
-  const roles = storage.getAll(KEYS.ROLES)
-  const found = roles.find((r) => r.name === roleName)
-  return found ? found.permissions : null
-}
-
-function getRoleLabel(roleName) {
-  const roles = storage.getAll(KEYS.ROLES)
-  const found = roles.find((r) => r.name === roleName)
-  return found ? found.label : roleName
-}
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import { api, apiErrorMessage, token, setUnauthorizedHandler } from '../utils/api'
 
 const AuthContext = createContext(null)
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(() => storage.get(KEYS.AUTH, null))
+  const [user, setUser] = useState(null)
+  const [permissions, setPermissions] = useState(null)
+  // اگر توکن ذخیره‌شده باشد، تا بررسی آن توسط سرور «در حال بارگذاری» هستیم
+  const [loading, setLoading] = useState(() => !!token.get())
 
-  const permissions = useMemo(() => {
-    if (!user) return null
-    return resolvePermissions(user.role)
-  }, [user])
+  const clearSession = useCallback(() => {
+    token.clear()
+    setUser(null)
+    setPermissions(null)
+  }, [])
 
-  function login(username, password) {
-    const users = storage.getAll(KEYS.USERS)
-    const found = users.find((u) => u.username === username && u.password === password)
-    if (!found) {
-      return { success: false, message: 'نام کاربری یا رمز عبور اشتباه است.' }
+  useEffect(() => {
+    setUnauthorizedHandler(clearSession)
+  }, [clearSession])
+
+  useEffect(() => {
+    if (!token.get()) { setLoading(false); return undefined }
+    let alive = true
+    api('/auth/me')
+      .then((d) => { if (alive) { setUser(d.user); setPermissions(d.permissions) } })
+      .catch((e) => { if (alive && e.status === 401) clearSession() })
+      .finally(() => { if (alive) setLoading(false) })
+    return () => { alive = false }
+  }, [clearSession])
+
+  async function login(username, password) {
+    try {
+      const d = await api('/auth/login', { method: 'POST', body: { username, password } })
+      token.set(d.token)
+      setUser(d.user)
+      setPermissions(d.permissions)
+      return { success: true }
+    } catch (e) {
+      return { success: false, message: apiErrorMessage(e) }
     }
-    const session = { id: found.id, username: found.username, name: found.name, role: found.role }
-    storage.set(KEYS.AUTH, session)
-    setUser(session)
-
-    const logs = storage.getAll(KEYS.LOGS)
-    logs.unshift({
-      id: generateId(),
-      date: new Date().toISOString(),
-      user: found.username,
-      action: 'ورود به سیستم',
-      details: 'کاربر با موفقیت وارد سیستم شد',
-    })
-    storage.saveAll(KEYS.LOGS, logs)
-
-    return { success: true }
   }
 
   function logout() {
-    if (user) {
-      const logs = storage.getAll(KEYS.LOGS)
-      logs.unshift({
-        id: generateId(),
-        date: new Date().toISOString(),
-        user: user.username,
-        action: 'خروج از سیستم',
-        details: 'کاربر از سیستم خارج شد',
-      })
-      storage.saveAll(KEYS.LOGS, logs)
-    }
-    storage.remove(KEYS.AUTH)
-    setUser(null)
+    if (user) api('/auth/logout', { method: 'POST' }).catch(() => {}) // توکن همین لحظه خوانده می‌شود، پیش از پاک‌شدن
+    clearSession()
   }
 
+  // بعد از ویرایش کاربران یا نقش‌ها صدا زده می‌شود تا نقش و دسترسی‌های کاربر فعلی از سرور بازخوانی شود
+  async function refreshAuth() {
+    if (!token.get()) return
+    try {
+      const d = await api('/auth/me')
+      setUser(d.user)
+      setPermissions(d.permissions)
+    } catch (e) {
+      if (e.status === 401) clearSession()
+    }
+  }
+
+  const getRoleLabel = useCallback(
+    (roleName) => (user && roleName === user.role && user.roleLabel ? user.roleLabel : roleName),
+    [user],
+  )
+
+  // اگر صفحه‌ای در دسترسی‌های نقش تعریف نشده باشد، دسترسی داده نمی‌شود (پیش‌فرض: ممنوع)
   function can(page, action = 'view') {
     if (!permissions) return false
     const pagePerms = permissions[page]
-    if (!pagePerms) return true
+    if (!pagePerms) return false
     return !!pagePerms[action]
   }
 
-  return (
-    <AuthContext.Provider value={{ user, login, logout, isAuthenticated: !!user, can, permissions, getRoleLabel }}>
-      {children}
-    </AuthContext.Provider>
+  const value = useMemo(
+    () => ({ user, loading, login, logout, isAuthenticated: !!user, can, permissions, getRoleLabel, refreshAuth }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [user, loading, permissions, getRoleLabel],
   )
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
 
 export function useAuth() {

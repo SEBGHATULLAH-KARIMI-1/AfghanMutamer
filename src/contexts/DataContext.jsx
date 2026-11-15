@@ -1,124 +1,158 @@
-import { createContext, useContext, useState } from 'react'
-import { storage, KEYS, generateId } from '../utils/storage'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
+import { api, apiErrorMessage } from '../utils/api'
+import { generateId } from '../utils/storage'
 import { useAuth } from './AuthContext'
+import { useToast } from './ToastContext'
 
 const DataContext = createContext(null)
 
+const PATHS = {
+  pilgrims: '/pilgrims',
+  payments: '/payments',
+  employees: '/employees',
+  companies: '/companies',
+  expenses: '/expenses',
+}
+
+// سرور برای مقدار خالی null می‌دهد؛ فرم‌ها و داده‌های قبلی برنامه از '' استفاده می‌کردند
+const clean = (o) => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, v === null ? '' : v]))
+const cleanList = (l) => (Array.isArray(l) ? l.map(clean) : [])
+
 export function DataProvider({ children }) {
-  const [pilgrims, setPilgrims] = useState(() => storage.getAll(KEYS.PILGRIMS))
-  const [payments, setPayments] = useState(() => storage.getAll(KEYS.PAYMENTS))
-  const [employees, setEmployees] = useState(() => storage.getAll(KEYS.EMPLOYEES))
-  const [logs, setLogs] = useState(() => storage.getAll(KEYS.LOGS))
-  const [settings, setSettings] = useState(() => storage.get(KEYS.SETTINGS, {}))
-  const [companies, setCompanies] = useState(() => storage.getAll(KEYS.COMPANIES))
+  const [pilgrims, setPilgrims] = useState([])
+  const [payments, setPayments] = useState([])
+  const [employees, setEmployees] = useState([])
+  const [companies, setCompanies] = useState([])
+  const [expenses, setExpenses] = useState([])
+  const [logs, setLogs] = useState([])
+  const [settings, setSettings] = useState({})
+  const [loading, setLoading] = useState(false)
 
-  const auth = useAuth()
+  const { user } = useAuth()
+  const { showToast } = useToast()
+  const userId = user?.id
 
-  function writeLog(action, details) {
-    const username = auth?.user?.username || 'system'
-    const newLogs = [
-      { id: generateId(), date: new Date().toISOString(), user: username, action, details },
-      ...storage.getAll(KEYS.LOGS),
-    ]
-    storage.saveAll(KEYS.LOGS, newLogs)
-    setLogs(newLogs)
+  const SET = useMemo(
+    () => ({ pilgrims: setPilgrims, payments: setPayments, employees: setEmployees, companies: setCompanies, expenses: setExpenses }),
+    [],
+  )
+
+  // ───────── خواندن از سرور ─────────
+  const loadOne = useCallback(async (key) => {
+    try {
+      if (key === 'logs') setLogs(await api('/logs'))
+      else if (key === 'settings') setSettings(await api('/settings'))
+      else SET[key](cleanList(await api(PATHS[key])))
+    } catch (e) {
+      // ۴۰۳ یعنی این نقش به آن بخش دسترسی ندارد؛ خطا نیست
+      if (e.status !== 403 && e.status !== 401) showToast(apiErrorMessage(e), 'error')
+    }
+  }, [SET, showToast])
+
+  const loadAll = useCallback(
+    () => Promise.all([...Object.keys(PATHS), 'settings', 'logs'].map(loadOne)),
+    [loadOne],
+  )
+
+  useEffect(() => {
+    if (!userId) {
+      setPilgrims([]); setPayments([]); setEmployees([]); setCompanies([]); setExpenses([]); setLogs([]); setSettings({})
+      return undefined
+    }
+    let alive = true
+    setLoading(true)
+    loadAll().finally(() => { if (alive) setLoading(false) })
+    return () => { alive = false }
+  }, [userId, loadAll])
+
+  // ───────── نوشتن روی سرور ─────────
+  // تغییرات بلافاصله در صفحه دیده می‌شود و پشت صف به سرور می‌رود (ترتیب حفظ می‌شود: مثلاً اول زائر، بعد پرداخت او).
+  // اگر سرور رد کرد، پیام خطا نشان داده و وضعیت از سرور دوباره خوانده می‌شود.
+  const queue = useRef(Promise.resolve())
+  const logTimer = useRef(null)
+
+  const scheduleLogs = useCallback(() => {
+    clearTimeout(logTimer.current)
+    logTimer.current = setTimeout(() => loadOne('logs'), 800)
+  }, [loadOne])
+
+  const enqueue = useCallback((task, onFail) => {
+    queue.current = queue.current
+      .then(task)
+      .then(scheduleLogs)
+      .catch((e) => {
+        showToast(apiErrorMessage(e), 'error')
+        onFail?.()
+      })
+  }, [scheduleLogs, showToast])
+
+  function makeCrud(key, { afterUpdate, afterDelete } = {}) {
+    const set = SET[key]
+    const path = PATHS[key]
+    return {
+      add(data) {
+        const item = { ...data, id: generateId() }
+        set((l) => [item, ...l])
+        enqueue(async () => {
+          const saved = clean(await api(path, { method: 'POST', body: item }))
+          set((l) => l.map((x) => (x.id === item.id ? saved : x)))
+        }, () => set((l) => l.filter((x) => x.id !== item.id)))
+        return item
+      },
+      update(id, patch) {
+        set((l) => l.map((x) => (String(x.id) === String(id) ? { ...x, ...patch } : x)))
+        enqueue(async () => {
+          const saved = clean(await api(`${path}/${id}`, { method: 'PUT', body: patch }))
+          set((l) => l.map((x) => (String(x.id) === String(id) ? saved : x)))
+          afterUpdate?.(patch)
+        }, () => loadOne(key))
+      },
+      remove(id) {
+        set((l) => l.filter((x) => String(x.id) !== String(id)))
+        enqueue(async () => {
+          await api(`${path}/${id}`, { method: 'DELETE' })
+          afterDelete?.(id)
+        }, () => loadOne(key))
+      },
+    }
   }
 
-  // ---------- Pilgrims ----------
-  function addPilgrim(data) {
-    const item = storage.add(KEYS.PILGRIMS, data)
-    setPilgrims(storage.getAll(KEYS.PILGRIMS))
-    writeLog('افزودن زائر', `زائر "${data.fullName} ${data.lastName}" اضافه شد`)
-    return item
-  }
-  function updatePilgrim(id, patch) {
-    storage.update(KEYS.PILGRIMS, id, patch)
-    setPilgrims(storage.getAll(KEYS.PILGRIMS))
-    writeLog('ویرایش زائر', `اطلاعات زائر ویرایش شد (ID: ${id})`)
-  }
-  function deletePilgrim(id) {
-    storage.removeItem(KEYS.PILGRIMS, id)
-    setPilgrims(storage.getAll(KEYS.PILGRIMS))
-    writeLog('حذف زائر', `زائر حذف شد (ID: ${id})`)
-  }
+  const pilgrimCrud = makeCrud('pilgrims', {
+    // نام زائر در پرداخت‌ها ذخیره است و سرور آن را هماهنگ می‌کند؛ اینجا فقط دوباره می‌خوانیم
+    afterUpdate: (patch) => { if ('fullName' in patch || 'lastName' in patch) loadOne('payments') },
+    afterDelete: () => loadOne('payments'),
+  })
+  const paymentCrud = makeCrud('payments')
+  const employeeCrud = makeCrud('employees')
+  const expenseCrud = makeCrud('expenses')
+  const companyCrud = makeCrud('companies', {
+    afterDelete: () => loadOne('pilgrims'),
+  })
 
-  // ---------- Payments ----------
-  function addPayment(data) {
-    const item = storage.add(KEYS.PAYMENTS, data)
-    setPayments(storage.getAll(KEYS.PAYMENTS))
-    writeLog('افزودن پرداخت', `پرداخت "${data.receiptNumber}" ثبت شد`)
-    return item
-  }
-  function updatePayment(id, patch) {
-    storage.update(KEYS.PAYMENTS, id, patch)
-    setPayments(storage.getAll(KEYS.PAYMENTS))
-    writeLog('ویرایش پرداخت', `پرداخت ویرایش شد (ID: ${id})`)
-  }
-  function deletePayment(id) {
-    storage.removeItem(KEYS.PAYMENTS, id)
-    setPayments(storage.getAll(KEYS.PAYMENTS))
-    writeLog('حذف پرداخت', `پرداخت حذف شد (ID: ${id})`)
-  }
-
-  // ---------- Employees ----------
-  function addEmployee(data) {
-    const item = storage.add(KEYS.EMPLOYEES, data)
-    setEmployees(storage.getAll(KEYS.EMPLOYEES))
-    writeLog('افزودن کارمند', `کارمند "${data.name}" اضافه شد`)
-    return item
-  }
-  function updateEmployee(id, patch) {
-    storage.update(KEYS.EMPLOYEES, id, patch)
-    setEmployees(storage.getAll(KEYS.EMPLOYEES))
-    writeLog('ویرایش کارمند', `اطلاعات کارمند ویرایش شد (ID: ${id})`)
-  }
-  function deleteEmployee(id) {
-    storage.removeItem(KEYS.EMPLOYEES, id)
-    setEmployees(storage.getAll(KEYS.EMPLOYEES))
-    writeLog('حذف کارمند', `کارمند حذف شد (ID: ${id})`)
-  }
-
-  // ---------- Companies ----------
-  function addCompany(data) {
-    const item = storage.add(KEYS.COMPANIES, data)
-    setCompanies(storage.getAll(KEYS.COMPANIES))
-    writeLog('افزودن شرکت', `شرکت "${data.name}" اضافه شد`)
-    return item
-  }
-  function updateCompany(id, patch) {
-    storage.update(KEYS.COMPANIES, id, patch)
-    setCompanies(storage.getAll(KEYS.COMPANIES))
-    writeLog('ویرایش شرکت', `اطلاعات شرکت ویرایش شد (ID: ${id})`)
-  }
   function deleteCompany(id) {
-    storage.removeItem(KEYS.COMPANIES, id)
-    setCompanies(storage.getAll(KEYS.COMPANIES))
-    writeLog('حذف شرکت', `شرکت حذف شد (ID: ${id})`)
+    // زائران شرکت حذف‌شده نمی‌مانند حذف شوند؛ فقط از شرکت جدا می‌شوند
+    setPilgrims((l) => l.map((p) => (p.companyId === id ? { ...p, companyId: '' } : p)))
+    companyCrud.remove(id)
   }
 
-  // ---------- Settings ----------
   function updateSettings(patch) {
-    const newSettings = { ...settings, ...patch }
-    storage.set(KEYS.SETTINGS, newSettings)
-    setSettings(newSettings)
-    writeLog('بروزرسانی تنظیمات', 'تنظیمات سیستم بروزرسانی شد')
+    setSettings((s) => ({ ...s, ...patch }))
+    enqueue(async () => {
+      setSettings(await api('/settings', { method: 'PUT', body: patch }))
+    }, () => loadOne('settings'))
   }
 
   function refreshAll() {
-    setPilgrims(storage.getAll(KEYS.PILGRIMS))
-    setPayments(storage.getAll(KEYS.PAYMENTS))
-    setEmployees(storage.getAll(KEYS.EMPLOYEES))
-    setLogs(storage.getAll(KEYS.LOGS))
-    setSettings(storage.get(KEYS.SETTINGS, {}))
-    setCompanies(storage.getAll(KEYS.COMPANIES))
+    return loadAll()
   }
 
   const value = {
-    pilgrims, addPilgrim, updatePilgrim, deletePilgrim,
-    payments, addPayment, updatePayment, deletePayment,
-    employees, addEmployee, updateEmployee, deleteEmployee,
-    companies, addCompany, updateCompany, deleteCompany,
-    logs, settings, updateSettings, refreshAll,
+    pilgrims, addPilgrim: pilgrimCrud.add, updatePilgrim: pilgrimCrud.update, deletePilgrim: pilgrimCrud.remove,
+    payments, addPayment: paymentCrud.add, updatePayment: paymentCrud.update, deletePayment: paymentCrud.remove,
+    employees, addEmployee: employeeCrud.add, updateEmployee: employeeCrud.update, deleteEmployee: employeeCrud.remove,
+    companies, addCompany: companyCrud.add, updateCompany: companyCrud.update, deleteCompany,
+    expenses, addExpense: expenseCrud.add, updateExpense: expenseCrud.update, deleteExpense: expenseCrud.remove,
+    logs, settings, updateSettings, refreshAll, loading,
   }
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>

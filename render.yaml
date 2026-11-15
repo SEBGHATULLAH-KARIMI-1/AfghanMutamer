@@ -1,0 +1,23 @@
+# Render Blueprint — بک‌اند Node (پوشه‌ی backend)
+services:
+  - type: web
+    name: hums-api
+    runtime: node
+    rootDir: backend
+    plan: free
+    buildCommand: npm install
+    startCommand: npm run start:prod   # migrate + seed (idempotent) + start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL        # رشته‌ی اتصال Neon
+        sync: false
+      - key: CORS_ORIGIN         # مثلاً https://your-site.netlify.app
+        sync: false
+      - key: ADMIN_PASSWORD      # رمز اولین مدیر
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true

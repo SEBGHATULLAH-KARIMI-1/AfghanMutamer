@@ -1,22 +1,20 @@
 import { useMemo, useState } from 'react'
 import {
-  FiPlus, FiSearch, FiEdit2, FiTrash2, FiTrendingDown, FiDollarSign, FiDownload, FiFileText,
+  FiPlus, FiSearch, FiEdit2, FiTrash2, FiTrendingDown, FiDownload, FiFileText,
 } from 'react-icons/fi'
 import { useToast } from '../contexts/ToastContext'
 import { useAuth } from '../contexts/AuthContext'
 import { useTableState } from '../utils/useTableState'
-import { storage, generateId } from '../utils/storage'
+import { useData } from '../contexts/DataContext'
 import Modal from '../components/common/Modal'
 import ConfirmModal from '../components/common/ConfirmModal'
 import Pagination from '../components/common/Pagination'
 import EmptyState from '../components/common/EmptyState'
 import StatCard from '../components/common/StatCard'
+import { currencyKey } from '../utils/finance'
 import { formatCurrency, formatJalali, todayISO, toPersianDigits } from '../utils/dateUtils'
 import { exportToExcel } from '../utils/excelExport'
 import { exportTableToPDF } from '../utils/pdfExport'
-
-// ─── کلید ذخیره‌سازی مصارف در LocalStorage ───
-const EXPENSES_KEY = 'hums_expenses'
 
 const CATEGORIES = [
   'نان و خوراکه',
@@ -30,13 +28,10 @@ const CATEGORIES = [
   'تعمیرات',
   'خریداری تجهیزات',
   'سایر مصارف',
-  'عاید متفرقه',
 ]
 
-
-
 const EMPTY_FORM = {
-  date: todayISO(),
+  date: '',
   type: 'مصرف',
   category: 'نان و خوراکه',
   person: '',
@@ -45,17 +40,19 @@ const EMPTY_FORM = {
   currency: 'افغانی',
 }
 
-function getExpenses() {
-  return storage.getAll(EXPENSES_KEY)
-}
-function saveExpenses(list) {
-  storage.saveAll(EXPENSES_KEY, list)
+// جمع مصارف به تفکیک ارز (دالر و افغانی هیچ‌وقت با هم جمع نمی‌شوند)
+function sumExpenses(list) {
+  const sum = { usd: 0, afn: 0 }
+  list.forEach((e) => {
+    if (e.type === 'مصرف') sum[currencyKey(e.currency)] += Number(e.amount) || 0
+  })
+  return sum
 }
 
 export default function Expenses() {
   const { showToast } = useToast()
   const { can } = useAuth()
-  const [expenses, setExpenses] = useState(() => getExpenses())
+  const { expenses, addExpense, updateExpense, deleteExpense } = useData()
 
   const table = useTableState(expenses, {
     searchFields: ['person', 'description', 'category'],
@@ -64,15 +61,17 @@ export default function Expenses() {
 
   const [modalOpen, setModalOpen] = useState(false)
   const [editId, setEditId] = useState(null)
-  const [form, setForm] = useState({ ...EMPTY_FORM, type: 'مصرف' })
+  const [form, setForm] = useState({ ...EMPTY_FORM, date: todayISO() })
   const [errors, setErrors] = useState({})
   const [confirmId, setConfirmId] = useState(null)
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
+
   const allCategories = useMemo(() => {
     const custom = expenses.map((e) => e.category).filter(Boolean)
     return [...new Set([...CATEGORIES, ...custom])]
   }, [expenses])
+
   const dateFiltered = useMemo(() => {
     let list = table.filtered
     if (dateFrom) list = list.filter((e) => e.date >= dateFrom)
@@ -80,25 +79,26 @@ export default function Expenses() {
     return list
   }, [table.filtered, dateFrom, dateTo])
 
-  // ─── محاسبات کلی ───
-  const totalExpense = expenses
-    .filter((e) => e.type === 'مصرف')
-    .reduce((s, e) => s + Number(e.amount || 0), 0)
+  const totalPages = Math.max(1, Math.ceil(dateFiltered.length / table.pageSize))
+  const page = Math.min(table.page, totalPages)
 
-
-  const todayExpense = expenses
-    .filter((e) => e.date === todayISO() && e.type === 'مصرف')
-    .reduce((s, e) => s + Number(e.amount || 0), 0)
+  // ─── محاسبات کلی (هر ارز جداگانه) ───
+  const totalExpense = useMemo(() => sumExpenses(expenses), [expenses])
+  const todayExpense = useMemo(() => {
+    const today = todayISO()
+    return sumExpenses(expenses.filter((e) => e.date === today))
+  }, [expenses])
+  const filteredExpense = useMemo(() => sumExpenses(dateFiltered), [dateFiltered])
 
   // ─── باز کردن مودال ───
   function openAdd() {
-    setForm({ ...EMPTY_FORM, type: 'مصرف' })
+    setForm({ ...EMPTY_FORM, date: todayISO() })
     setEditId(null)
     setErrors({})
     setModalOpen(true)
   }
   function openEdit(item) {
-    setForm(item)
+    setForm({ ...EMPTY_FORM, ...item })
     setEditId(item.id)
     setErrors({})
     setModalOpen(true)
@@ -109,7 +109,7 @@ export default function Expenses() {
     const errs = {}
     if (!form.amount || Number(form.amount) <= 0) errs.amount = 'مبلغ معتبر وارد کنید'
     if (!form.date) errs.date = 'تاریخ الزامی است'
-    if (!form.description.trim()) errs.description = 'توضیح الزامی است'
+    if (!String(form.description || '').trim()) errs.description = 'توضیح الزامی است'
     setErrors(errs)
     return Object.keys(errs).length === 0
   }
@@ -119,55 +119,63 @@ export default function Expenses() {
     e.preventDefault()
     if (!validate()) return
 
-    let updated
+    const payload = { ...form, amount: Number(form.amount) }
     if (editId) {
-      updated = expenses.map((x) => (x.id === editId ? { ...x, ...form } : x))
-      showToast('مصرف/عاید بروزرسانی شد', 'success')
+      updateExpense(editId, payload)
+      showToast('مصرف بروزرسانی شد', 'success')
     } else {
-      const newItem = { ...form, id: generateId(), createdAt: new Date().toISOString() }
-      updated = [newItem, ...expenses]
+      addExpense(payload)
       showToast('مصرف ثبت شد', 'success')
     }
-
-    saveExpenses(updated)
-    setExpenses(updated)
     setModalOpen(false)
   }
 
   // ─── حذف ───
   function handleDelete() {
-    const updated = expenses.filter((x) => x.id !== confirmId)
-    saveExpenses(updated)
-    setExpenses(updated)
+    deleteExpense(confirmId)
     showToast('آیتم حذف شد', 'error')
   }
 
   // ─── خروجی Excel ───
-  function handleExcel() {
-    exportToExcel({
-      sheetName: 'Expenses',
-      fileName: 'expenses.xlsx',
-      rows: dateFiltered.map((e) => ({
-        تاریخ: e.date,
-        نوع: e.type,
-        کتگوری: e.category,
-        شخص: e.person || '-',
-        مبلغ: e.amount,
-        توضیح: e.description,
-      })),
-    })
+  async function handleExcel() {
+    if (dateFiltered.length === 0) { showToast('داده‌ای برای خروجی وجود ندارد', 'error'); return }
+    try {
+      await exportToExcel({
+        sheetName: 'مصارف',
+        fileName: `expenses-${Date.now()}.xlsx`,
+        rows: dateFiltered.map((e) => ({
+          تاریخ: formatJalali(e.date),
+          نوع: e.type,
+          کتگوری: e.category,
+          شخص: e.person || '-',
+          مبلغ: Number(e.amount) || 0,
+          ارز: e.currency || 'افغانی',
+          توضیح: e.description || '',
+        })),
+      })
+      showToast('خروجی Excel با موفقیت دریافت شد', 'success')
+    } catch {
+      showToast('خطا در تولید فایل Excel', 'error')
+    }
   }
 
   // ─── خروجی PDF ───
-  function handlePDF() {
-    exportTableToPDF({
-      title: 'Expenses & Income Report',
-      fileName: 'expenses-report.pdf',
-      columns: ['Date', 'Type', 'Category', 'Person', 'Amount', 'Description'],
-      rows: dateFiltered.map((e) => [
-        e.date, e.type, e.category, e.person || '-', e.amount, e.description,
-      ]),
-    })
+  async function handlePDF() {
+    if (dateFiltered.length === 0) { showToast('داده‌ای برای خروجی وجود ندارد', 'error'); return }
+    try {
+      await exportTableToPDF({
+        title: 'گزارش مصارف',
+        fileName: `expenses-report-${Date.now()}.pdf`,
+        columns: ['تاریخ', 'نوع', 'کتگوری', 'شخص', 'مبلغ', 'توضیح'],
+        rows: dateFiltered.map((e) => [
+          formatJalali(e.date), e.type, e.category, e.person || '-',
+          formatCurrency(e.amount, e.currency), e.description || '',
+        ]),
+      })
+      showToast('خروجی PDF با موفقیت دریافت شد', 'success')
+    } catch {
+      showToast('خطا در تولید فایل PDF', 'error')
+    }
   }
 
   // ─── رنگ ردیف ───
@@ -183,23 +191,34 @@ export default function Expenses() {
       <div className="stats-grid">
         <StatCard
           icon={<FiTrendingDown />}
-          label="مجموع مصارف"
-          value={formatCurrency(totalExpense)}
+          label="مجموع مصارف (دالر)"
+          value={formatCurrency(totalExpense.usd, 'دالر')}
           color="var(--danger)"
         />
-
         <StatCard
           icon={<FiTrendingDown />}
-          label="مصارف امروز"
-          value={formatCurrency(todayExpense)}
+          label="مجموع مصارف (افغانی)"
+          value={formatCurrency(totalExpense.afn, 'افغانی')}
+          color="#a93226"
+        />
+        <StatCard
+          icon={<FiTrendingDown />}
+          label="مصارف امروز (دالر)"
+          value={formatCurrency(todayExpense.usd, 'دالر')}
           color="#b8860b"
+        />
+        <StatCard
+          icon={<FiTrendingDown />}
+          label="مصارف امروز (افغانی)"
+          value={formatCurrency(todayExpense.afn, 'افغانی')}
+          color="#8a6508"
         />
       </div>
 
       {/* ─── جدول ─── */}
       <div className="card">
         <div className="card-header">
-          <h3>دفتر مصارف و عواید ({toPersianDigits(dateFiltered.length)})</h3>
+          <h3>دفتر مصارف ({toPersianDigits(dateFiltered.length)})</h3>
           <div className="toolbar">
             <div className="search-box">
               <FiSearch />
@@ -215,7 +234,7 @@ export default function Expenses() {
               onChange={(e) => table.setFilter('category', e.target.value)}
             >
               <option value="all">همه کتگوری‌ها</option>
-                {allCategories.map((c) => (
+              {allCategories.map((c) => (
                 <option key={c} value={c}>{c}</option>
               ))}
             </select>
@@ -223,7 +242,7 @@ export default function Expenses() {
               type="date"
               className="date-input"
               value={dateFrom}
-              onChange={(e) => setDateFrom(e.target.value)}
+              onChange={(e) => { setDateFrom(e.target.value); table.setPage(1) }}
               title="از تاریخ"
               placeholder="از تاریخ"
             />
@@ -231,7 +250,7 @@ export default function Expenses() {
               type="date"
               className="date-input"
               value={dateTo}
-              onChange={(e) => setDateTo(e.target.value)}
+              onChange={(e) => { setDateTo(e.target.value); table.setPage(1) }}
               title="تا تاریخ"
               placeholder="تا تاریخ"
             />
@@ -240,7 +259,7 @@ export default function Expenses() {
 
         {/* دکمه‌های اکشن */}
         <div style={{ padding: '14px 20px', display: 'flex', gap: 10, flexWrap: 'wrap', borderBottom: '1px solid var(--color-border)' }}>
-          {can('expenses', 'create') && <button className="btn btn-danger" onClick={() => openAdd('مصرف')}>
+          {can('expenses', 'create') && <button className="btn btn-danger" onClick={openAdd}>
             <FiPlus /> ثبت مصرف
           </button>}
           <div style={{ marginRight: 'auto', display: 'flex', gap: 8 }}>
@@ -256,9 +275,9 @@ export default function Expenses() {
         {dateFiltered.length === 0 ? (
           <EmptyState
             title="مصرفی ثبت نشده"
-            description="اولین مصرف یا عاید را ثبت کنید."
+            description="اولین مصرف را ثبت کنید."
             action={
-              can('expenses', 'create') && <button className="btn btn-primary" onClick={() => openAdd('مصرف')}>
+              can('expenses', 'create') && <button className="btn btn-primary" onClick={openAdd}>
                 <FiPlus /> ثبت مصرف
               </button>
             }
@@ -279,7 +298,7 @@ export default function Expenses() {
               </thead>
               <tbody>
                 {dateFiltered
-                  .slice((table.page - 1) * table.pageSize, table.page * table.pageSize)
+                  .slice((page - 1) * table.pageSize, page * table.pageSize)
                   .map((item) => (
                     <tr key={item.id} style={rowStyle(item.type)}>
                       <td>{formatJalali(item.date)}</td>
@@ -313,7 +332,7 @@ export default function Expenses() {
           </div>
         )}
 
-        {/* جمع‌بندی انتهای جدول */}
+        {/* جمع‌بندی انتهای جدول (به تفکیک ارز) */}
         {dateFiltered.length > 0 && (
           <div style={{
             padding: '14px 20px',
@@ -325,18 +344,19 @@ export default function Expenses() {
             fontSize: 13.5,
           }}>
             <span>
-              مجموع مصارف فیلترشده:{' '}
-              <strong style={{ color: 'var(--danger)' }}>
-                {formatCurrency(dateFiltered.filter(e => e.type === 'مصرف').reduce((s, e) => s + Number(e.amount || 0), 0))}
-              </strong>
+              مجموع مصارف فیلترشده (دالر):{' '}
+              <strong style={{ color: 'var(--danger)' }}>{formatCurrency(filteredExpense.usd, 'دالر')}</strong>
             </span>
-
+            <span>
+              مجموع مصارف فیلترشده (افغانی):{' '}
+              <strong style={{ color: 'var(--danger)' }}>{formatCurrency(filteredExpense.afn, 'افغانی')}</strong>
+            </span>
           </div>
         )}
 
         <Pagination
-          page={table.page}
-          totalPages={Math.max(1, Math.ceil(dateFiltered.length / table.pageSize))}
+          page={page}
+          totalPages={totalPages}
           onChange={table.setPage}
           totalItems={dateFiltered.length}
           pageSize={table.pageSize}
@@ -361,8 +381,6 @@ export default function Expenses() {
         }
       >
         <form onSubmit={handleSubmit}>
-
-
           <div className="form-grid">
             <div className="form-field">
               <label>تاریخ</label>
@@ -403,7 +421,7 @@ export default function Expenses() {
                 onChange={(e) => setForm({ ...form, category: e.target.value })}
               />
               <datalist id="category-list">
-              {allCategories.map((c) => (
+                {allCategories.map((c) => (
                   <option key={c} value={c} />
                 ))}
               </datalist>

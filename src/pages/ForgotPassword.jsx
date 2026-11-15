@@ -1,51 +1,24 @@
-import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { FiMail, FiArrowRight, FiCheckCircle } from 'react-icons/fi'
+import { FiArrowRight, FiInfo } from 'react-icons/fi'
 import { FaMosque } from 'react-icons/fa'
 
+// این برنامه سروری برای ارسال ایمیل ندارد؛ بازیابی رمز عبور فقط توسط مدیر سیستم ممکن است
 export default function ForgotPassword() {
-  const [email, setEmail] = useState('')
-  const [sent, setSent] = useState(false)
-
-  function handleSubmit(e) {
-    e.preventDefault()
-    if (!email) return
-    setSent(true)
-  }
-
   return (
     <div className="login-page">
       <div className="islamic-pattern" style={{ opacity: 0.12 }} />
       <div className="login-card">
         <div className="login-emblem"><FaMosque /></div>
         <h2>بازیابی رمز عبور</h2>
-        <p className="subtitle">ایمیل حساب کاربری خود را وارد کنید تا لینک بازیابی برای شما ارسال شود</p>
+        <p className="subtitle">ارسال ایمیل در این نسخه پشتیبانی نمی‌شود</p>
 
-        {sent ? (
-          <div style={{ textAlign: 'center', padding: '10px 0' }}>
-            <FiCheckCircle style={{ fontSize: 40, color: 'var(--color-secondary)', marginBottom: 12 }} />
-            <p style={{ fontSize: 13.5 }}>
-              در صورت معتبر بودن ایمیل وارد شده، لینک بازیابی رمز عبور برای شما ارسال شد.
-            </p>
-          </div>
-        ) : (
-          <form onSubmit={handleSubmit}>
-            <div className="form-field mb-2">
-              <label>ایمیل</label>
-              <div className="search-box" style={{ background: 'rgba(255,255,255,0.1)', borderColor: 'rgba(255,255,255,0.25)' }}>
-                <FiMail />
-                <input
-                  type="email"
-                  placeholder="example@domain.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  style={{ color: '#fff' }}
-                />
-              </div>
-            </div>
-            <button type="submit" className="btn btn-gold btn-block">ارسال لینک بازیابی</button>
-          </form>
-        )}
+        <div style={{ textAlign: 'center', padding: '10px 0' }}>
+          <FiInfo style={{ fontSize: 40, color: 'var(--color-secondary)', marginBottom: 12 }} />
+          <p style={{ fontSize: 13.5, lineHeight: 1.9 }}>
+            برای بازیابی رمز عبور با مدیر سیستم تماس بگیرید.
+            مدیر می‌تواند از بخش «تنظیمات ← مدیریت کاربران» رمز جدیدی برای حساب شما تعیین کند.
+          </p>
+        </div>
 
         <div className="forgot-link">
           <Link to="/login"><FiArrowRight /> بازگشت به صفحه ورود</Link>

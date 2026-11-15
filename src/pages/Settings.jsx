@@ -3,7 +3,10 @@ import { FiSave, FiUpload, FiDownload, FiMoon, FiSun, FiUserPlus, FiKey, FiDropl
 import { useData } from '../contexts/DataContext'
 import { useTheme } from '../contexts/ThemeContext'
 import { useToast } from '../contexts/ToastContext'
-import { storage } from '../utils/storage'
+import { api, apiErrorMessage } from '../utils/api'
+import { checkIntegrity } from '../utils/integrity'
+import { compressImage } from '../utils/image'
+import { todayISO } from '../utils/dateUtils'
 import Modal from '../components/common/Modal'
 import { useAuth } from '../contexts/AuthContext'
 
@@ -40,9 +43,9 @@ const FONT_WEIGHTS = [
 
 const FONT_FAMILIES = [
   { key: 'vazir', label: 'وزیرمتن', desc: 'Vazirmatn' },
-  { key: 'iransans', label: 'ایران سنس', desc: 'IRANSans' },
-  { key: 'iranyekan', label: 'ایران یکان', desc: 'IRANYekan' },
-  { key: 'shabnam', label: 'شبنم', desc: 'Shabnam' },
+  { key: 'notosans', label: 'نوتو سنس', desc: 'Noto Sans Arabic' },
+  { key: 'naskh', label: 'نسخ', desc: 'Noto Naskh Arabic' },
+  { key: 'cairo', label: 'کایرو', desc: 'Cairo' },
 ]
 
 const PAGE_LABELS = {
@@ -84,16 +87,17 @@ const TABS = [
 ]
 
 export default function Settings() {
-  const { settings, updateSettings } = useData()
+  const { settings, updateSettings, pilgrims, payments, companies, employees } = useData()
   const { theme, toggleTheme, appearance, updateAppearance } = useTheme()
   const { showToast } = useToast()
-  const { user: currentUser } = useAuth()
+  const { user: currentUser, refreshAuth } = useAuth()
   const [tab, setTab] = useState('general')
   const [form, setForm] = useState(settings || {})
   const fileInputRef = useRef(null)
-  const restoreInputRef = useRef(null)
   const [userModalOpen, setUserModalOpen] = useState(false)
   const [newUser, setNewUser] = useState({ username: '', password: '', name: '', role: '' })
+  const [editingUser, setEditingUser] = useState(null)
+  const [integrity, setIntegrity] = useState(null)
   const [roles, setRoles] = useState([])
   const [roleModalOpen, setRoleModalOpen] = useState(false)
   const [editingRole, setEditingRole] = useState(null)
@@ -101,76 +105,118 @@ export default function Settings() {
   const [users, setUsers] = useState([])
   const [page, setPage] = useState('dashboard')
 
-  useEffect(() => { setRoles(storage.getAll(storage.KEYS.ROLES)) }, [])
-  useEffect(() => { setUsers(storage.getAll(storage.KEYS.USERS)) }, [])
-
-  function refreshRoles() {
-    const r = storage.getAll(storage.KEYS.ROLES)
-    setRoles(r)
-    return r
+  async function refreshRoles() {
+    try { setRoles(await api('/roles')) } catch (e) { showToast(apiErrorMessage(e), 'error') }
   }
 
-  function refreshUsers() {
-    const u = storage.getAll(storage.KEYS.USERS)
-    setUsers(u)
+  async function refreshUsers() {
+    try { setUsers(await api('/users')) } catch (e) { showToast(apiErrorMessage(e), 'error') }
   }
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { refreshRoles(); refreshUsers() }, [])
 
   function userCountForRole(roleName) {
     return users.filter((u) => u.role === roleName).length
   }
 
-  function handleLogoUpload(e) {
+  async function handleLogoUpload(e) {
     const file = e.target.files?.[0]
+    e.target.value = ''
     if (!file) return
-    const reader = new FileReader()
-    reader.onload = () => setForm((f) => ({ ...f, logo: reader.result }))
-    reader.readAsDataURL(file)
+    try {
+      const logo = await compressImage(file)
+      setForm((f) => ({ ...f, logo }))
+    } catch {
+      showToast('فایل عکس معتبر نیست', 'error')
+    }
   }
 
   function handleSaveGeneral() {
-    updateSettings(form)
+    if (form.phone && String(form.phone).replace(/\D/g, '').length < 7) { showToast('شماره تماس معتبر نیست', 'error'); return }
+    if (form.email && !/^\S+@\S+\.\S+$/.test(String(form.email).trim())) { showToast('ایمیل معتبر نیست', 'error'); return }
+    // فقط فیلدهای همین تب ذخیره می‌شوند تا تنظیمات دیگر (مثل ارز نمایش) با مقدار قدیمی بازنویسی نشوند
+    updateSettings({
+      companyName: form.companyName || '',
+      phone: form.phone || '',
+      address: form.address || '',
+      email: form.email || '',
+      logo: form.logo,
+    })
     showToast('تنظیمات عمومی ذخیره شد', 'success')
   }
 
-  function handleBackup() {
-    const backup = storage.exportBackup()
+  async function handleBackup() {
+    let backup
+    try { backup = await api('/backup') } catch (e) { showToast(apiErrorMessage(e), 'error'); return }
     const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `hajj-umrah-backup-${Date.now()}.json`
+    a.download = `hajj-umrah-backup-${todayISO()}.json`
     a.click()
     URL.revokeObjectURL(url)
     showToast('فایل پشتیبان دانلود شد', 'success')
   }
 
-  function handleRestore(e) {
-    const file = e.target.files?.[0]
-    if (!file) return
-    const reader = new FileReader()
-    reader.onload = () => {
-      try {
-        const data = JSON.parse(reader.result)
-        storage.restoreBackup(data)
-        showToast('بازیابی اطلاعات با موفقیت انجام شد. صفحه را بازخوانی کنید.', 'success')
-      } catch {
-        showToast('فایل پشتیبان نامعتبر است', 'error')
-      }
-    }
-    reader.readAsText(file)
+  function openNewUser() {
+    setEditingUser(null)
+    setNewUser({ username: '', password: '', name: '', role: '' })
+    setUserModalOpen(true)
   }
 
-  function handleCreateUser() {
-    if (!newUser.username || !newUser.password || !newUser.name || !newUser.role) {
+  function openEditUser(u) {
+    setEditingUser(u)
+    setNewUser({ username: u.username, password: '', name: u.name, role: u.role })
+    setUserModalOpen(true)
+  }
+
+  async function handleSaveUser() {
+    const username = newUser.username.trim()
+    const name = newUser.name.trim()
+    if (!username || !name || !newUser.role || (!editingUser && !newUser.password)) {
       showToast('لطفا تمامی فیلدها را تکمیل کنید', 'error')
       return
     }
-    const allUsers = storage.getAll(storage.KEYS.USERS)
-    storage.saveAll(storage.KEYS.USERS, [...allUsers, { ...newUser, id: Date.now().toString() }])
-    showToast('کاربر جدید با موفقیت ایجاد شد', 'success')
+    if (newUser.password && newUser.password.length < 6) {
+      showToast('رمز عبور باید حداقل ۶ کاراکتر باشد', 'error')
+      return
+    }
+    try {
+      const body = { username, name, role: newUser.role, password: newUser.password }
+      if (editingUser) {
+        await api(`/users/${editingUser.id}`, { method: 'PUT', body })
+        showToast('اطلاعات کاربر بروزرسانی شد', 'success')
+      } else {
+        await api('/users', { method: 'POST', body })
+        showToast('کاربر جدید با موفقیت ایجاد شد', 'success')
+      }
+    } catch (e) {
+      showToast(apiErrorMessage(e), 'error')
+      return
+    }
     setUserModalOpen(false)
+    setEditingUser(null)
     refreshUsers()
+    refreshAuth()
     setNewUser({ username: '', password: '', name: '', role: '' })
+  }
+
+  async function handleDeleteUser(u) {
+    if (u.id === currentUser?.id) {
+      showToast('نمی‌توانید حساب خودتان را حذف کنید', 'error')
+      return
+    }
+    if (!confirm(`آیا از حذف کاربر «${u.name}» اطمینان دارید؟`)) return
+    try {
+      await api(`/users/${u.id}`, { method: 'DELETE' })
+    } catch (e) {
+      showToast(apiErrorMessage(e), 'error')
+      return
+    }
+    refreshUsers()
+    refreshAuth()
+    showToast('کاربر حذف شد', 'success')
   }
 
   function openNewRole() {
@@ -211,42 +257,63 @@ export default function Settings() {
     }))
   }
 
-  function handleSaveRole() {
-    if (!roleForm.name || !roleForm.label) {
+  async function handleSaveRole() {
+    const name = roleForm.name.trim()
+    const label = roleForm.label.trim()
+    if (!name || !label) {
       showToast('نام و عنوان نقش را وارد کنید', 'error')
       return
     }
-    if (roles.some((r) => r.name === roleForm.name && (!editingRole || editingRole.name !== roleForm.name))) {
+    if (roles.some((r) => r.id !== editingRole?.id && String(r.name).toLowerCase() === name.toLowerCase())) {
       showToast('این نام نقش قبلاً ثبت شده است', 'error')
       return
     }
-    const allRoles = storage.getAll(storage.KEYS.ROLES)
-    if (editingRole) {
-      const idx = allRoles.findIndex((r) => r.id === editingRole.id)
-      if (idx !== -1) {
-        allRoles[idx] = { ...allRoles[idx], ...roleForm, id: editingRole.id }
-        storage.saveAll(storage.KEYS.ROLES, allRoles)
-        showToast('نقش ویرایش شد', 'success')
+    // محافظت از قفل شدن خود کاربر: نقشِ خودش را نمی‌تواند بازنامی کند یا دسترسی تنظیمات را از آن بگیرد
+    if (editingRole && editingRole.name === currentUser?.role) {
+      if (name !== editingRole.name) {
+        showToast('نقش خودتان را نمی‌توانید بازنامی کنید', 'error')
+        return
       }
-    } else {
-      allRoles.push({ ...roleForm, id: Date.now().toString() })
-      storage.saveAll(storage.KEYS.ROLES, allRoles)
-      showToast('نقش جدید ایجاد شد', 'success')
+      if (!roleForm.permissions.settings?.view) {
+        showToast('نقش شما باید دسترسی «مشاهده» تنظیمات را حفظ کند؛ در غیر این صورت قفل می‌شوید', 'error')
+        return
+      }
+    }
+    try {
+      const body = { name, label, permissions: roleForm.permissions }
+      if (editingRole) {
+        await api(`/roles/${editingRole.id}`, { method: 'PUT', body })
+        // اگر نام نقش عوض شد، سرور کاربران آن نقش را هم هماهنگ می‌کند
+        if (name !== editingRole.name) refreshUsers()
+        showToast('نقش ویرایش شد', 'success')
+      } else {
+        await api('/roles', { method: 'POST', body })
+        showToast('نقش جدید ایجاد شد', 'success')
+      }
+    } catch (e) {
+      showToast(apiErrorMessage(e), 'error')
+      return
     }
     refreshRoles()
+    refreshAuth()
     setRoleModalOpen(false)
   }
 
-  function handleDeleteRole(role) {
+  async function handleDeleteRole(role) {
     const count = userCountForRole(role.name)
     if (count > 0) {
       showToast(`امکان حذف نقش وجود ندارد. ${count} کاربر با این نقش ثبت شده است.`, 'error')
       return
     }
     if (!confirm(`آیا از حذف نقش «${role.label}» اطمینان دارید؟`)) return
-    const allRoles = storage.getAll(storage.KEYS.ROLES).filter((r) => r.id !== role.id)
-    storage.saveAll(storage.KEYS.ROLES, allRoles)
+    try {
+      await api(`/roles/${role.id}`, { method: 'DELETE' })
+    } catch (e) {
+      showToast(apiErrorMessage(e), 'error')
+      return
+    }
     refreshRoles()
+    refreshAuth()
     showToast('نقش حذف شد', 'success')
   }
 
@@ -401,7 +468,7 @@ export default function Settings() {
         <div className="card">
           <div className="card-header">
             <h3>مدیریت کاربران</h3>
-            <button className="btn btn-primary btn-sm" onClick={() => setUserModalOpen(true)}><FiUserPlus /> کاربر جدید</button>
+            <button className="btn btn-primary btn-sm" onClick={openNewUser}><FiUserPlus /> کاربر جدید</button>
           </div>
           <div className="card-body">
             {users.length === 0 ? (
@@ -414,6 +481,7 @@ export default function Settings() {
                       <th>نام</th>
                       <th>نام کاربری</th>
                       <th>نقش</th>
+                      <th>عملیات</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -424,6 +492,12 @@ export default function Settings() {
                           <td>{u.name}</td>
                           <td>{u.username}</td>
                           <td><span className="badge badge-primary">{roleObj?.label || u.role}</span></td>
+                          <td>
+                            <div className="row-actions">
+                              <button className="edit-btn" onClick={() => openEditUser(u)} title="ویرایش"><FiEdit2 /></button>
+                              <button className="delete-btn" onClick={() => handleDeleteUser(u)} title="حذف"><FiTrash2 /></button>
+                            </div>
+                          </td>
                         </tr>
                       )
                     })}
@@ -501,10 +575,9 @@ export default function Settings() {
             <div className="card-header"><h3>زبان و نمایش</h3></div>
             <div className="card-body">
               <div className="form-field mb-2">
-                <label>زبان سیستم</label>
-                <select className="select-input">
+                <label>زبان سیستم (فعلاً فقط فارسی / دری)</label>
+                <select className="select-input" disabled>
                   <option value="fa">فارسی / دری</option>
-                  <option value="en">English</option>
                 </select>
               </div>
               <div className="form-field mb-2">
@@ -513,7 +586,7 @@ export default function Settings() {
                   <option value="دالر">دالر</option>
                   <option value="افغانی">افغانی</option>
                 </select>
-                <span style={{ fontSize: 11, color: '#667085' }}>همه مبالغ در کارت‌های آماری و نمودارها به این ارز نمایش داده می‌شوند</span>
+                <span style={{ fontSize: 11, color: '#667085' }}>ارز پیش‌فرض نمودار درآمد در داشبورد. کارت‌ها دالر و افغانی را جداگانه نشان می‌دهند</span>
               </div>
               <div className="flex-between">
                 <span style={{ fontSize: 13.5 }}>حالت نمایش</span>
@@ -524,32 +597,53 @@ export default function Settings() {
             </div>
           </div>
           <div className="card">
+            <div className="card-header"><h3>بررسی یکپارچگی داده‌ها</h3></div>
+            <div className="card-body">
+              <p className="text-muted" style={{ fontSize: 13 }}>ارتباط زائران، شرکت‌ها، پرداخت‌ها، کاربران و نقش‌ها را بررسی می‌کند و موارد ناسازگار را گزارش می‌دهد. چیزی تغییر نمی‌کند.</p>
+              <button className="btn btn-outline mt-2" onClick={() => setIntegrity(checkIntegrity({ pilgrims, payments, companies, employees, users, roles }))}><FiShield /> اجرای بررسی</button>
+              {integrity && (
+                integrity.length === 0 ? (
+                  <div style={{ marginTop: 14, fontSize: 13, color: 'var(--success)' }}>✅ مشکلی پیدا نشد؛ همه‌ی ارتباط‌ها درست است.</div>
+                ) : (
+                  <ul style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    {integrity.map((it, i) => (
+                      <li key={i} style={{ fontSize: 13 }}>
+                        <div className="fw-bold">{it.level === 'error' ? '❌' : it.level === 'warning' ? '⚠️' : 'ℹ️'} {it.title} ({it.count})</div>
+                        {it.samples.length > 0 && (
+                          <div className="text-muted" style={{ fontSize: 12, marginTop: 2 }}>{it.samples.join('، ')}{it.count > it.samples.length ? ' ...' : ''}</div>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )
+              )}
+            </div>
+          </div>
+          <div className="card">
             <div className="card-header"><h3>پشتیبان‌گیری از اطلاعات</h3></div>
             <div className="card-body">
-              <p className="text-muted" style={{ fontSize: 13 }}>از تمامی اطلاعات ذخیره شده در سیستم نسخه پشتیبان تهیه کرده یا اطلاعات قبلی را بازیابی کنید.</p>
+              <p className="text-muted" style={{ fontSize: 13 }}>از تمامی اطلاعات ذخیره‌شده در دیتابیس نسخه پشتیبان (JSON) تهیه کنید. رمز عبور کاربران در فایل نیست. بازیابی از طریق سرور انجام می‌شود (npm run import).</p>
               <div className="toolbar mt-2">
                 <button className="btn btn-primary" onClick={handleBackup}><FiDownload /> دانلود نسخه پشتیبان</button>
-                <button className="btn btn-outline" onClick={() => restoreInputRef.current.click()}><FiUpload /> بازیابی اطلاعات</button>
-                <input ref={restoreInputRef} type="file" accept="application/json" style={{ display: 'none' }} onChange={handleRestore} />
               </div>
             </div>
           </div>
         </div>
       )}
 
-      <Modal open={userModalOpen} onClose={() => setUserModalOpen(false)} title="ایجاد کاربر جدید" size="sm"
+      <Modal open={userModalOpen} onClose={() => setUserModalOpen(false)} title={editingUser ? 'ویرایش کاربر' : 'ایجاد کاربر جدید'} size="sm"
         footer={
           <>
             <button className="btn btn-outline" onClick={() => setUserModalOpen(false)}>انصراف</button>
-            <button className="btn btn-primary" onClick={handleCreateUser}>ایجاد کاربر</button>
+            <button className="btn btn-primary" onClick={handleSaveUser}>{editingUser ? 'ذخیره تغییرات' : 'ایجاد کاربر'}</button>
           </>
         }
       >
         <div className="form-field mb-2"><label>نام کامل</label><input className="text-input" value={newUser.name} onChange={(e) => setNewUser({ ...newUser, name: e.target.value })} placeholder="مثال: احمد محمدی" /></div>
         <div className="form-field mb-2"><label>نام کاربری</label><input className="text-input" value={newUser.username} onChange={(e) => setNewUser({ ...newUser, username: e.target.value })} placeholder="مثال: ahmad" /></div>
-        <div className="form-field mb-2"><label>رمز عبور</label><input type="password" className="text-input" value={newUser.password} onChange={(e) => setNewUser({ ...newUser, password: e.target.value })} placeholder="حداقل ۶ کاراکتر" /></div>
+        <div className="form-field mb-2"><label>رمز عبور</label><input type="password" className="text-input" value={newUser.password} onChange={(e) => setNewUser({ ...newUser, password: e.target.value })} placeholder={editingUser ? 'خالی بگذارید تا تغییر نکند' : 'حداقل ۶ کاراکتر'} /></div>
         <div className="form-field"><label>نقش</label>
-          <select className="select-input" value={newUser.role} onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}>
+          <select className="select-input" value={newUser.role} disabled={!!editingUser && editingUser.id === currentUser?.id} onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}>
             <option value="">انتخاب نقش</option>
             {roles.map((r) => <option key={r.id} value={r.name}>{r.label}</option>)}
           </select>

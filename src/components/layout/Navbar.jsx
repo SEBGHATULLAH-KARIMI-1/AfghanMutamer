@@ -4,14 +4,18 @@ import { FiMenu, FiSun, FiMoon, FiBell, FiLogOut, FiChevronDown } from 'react-ic
 import { useTheme } from '../../contexts/ThemeContext'
 import { useAuth } from '../../contexts/AuthContext'
 import { useToast } from '../../contexts/ToastContext'
+import { useData } from '../../contexts/DataContext'
+import { formatJalali } from '../../utils/dateUtils'
 
 const TITLES = {
   '/': 'داشبورد',
   '/pilgrims': 'مدیریت زائران',
   '/payments': 'مدیریت پرداخت‌ها',
   '/reports': 'گزارش‌ها',
+  '/ai': 'تحلیل هوشمند',
   '/employees': 'مدیریت کارمندان',
-  '/expenses': 'مصارف و عواید روزانه',
+  '/expenses': 'مصارف روزانه',
+  '/companies': 'مدیریت شرکت‌ها',
   '/settings': 'تنظیمات سیستم',
 }
 
@@ -32,11 +36,15 @@ export default function Navbar({ onToggleSidebar }) {
     navigate('/login')
   }
 
-  const notifications = [
-    { id: 1, text: 'پرداخت جدید ثبت شد', time: '۵ دقیقه پیش' },
-    { id: 2, text: 'زائر جدید اضافه شد', time: '۲ ساعت پیش' },
-    { id: 3, text: 'کاروان شماره C-112 آماده حرکت است', time: 'دیروز' },
-  ]
+  const { logs } = useData()
+  // اعلان‌ها = آخرین رویدادهای واقعی سیستم (نه متن ثابت)
+  const notifications = logs.slice(0, 5).map((l) => {
+    const d = new Date(l.date)
+    const time = isNaN(d.getTime())
+      ? ''
+      : `${formatJalali(l.date)} — ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+    return { id: l.id, text: `${l.action}${l.user ? ` (${l.user})` : ''}`, time }
+  })
 
   return (
     <header className="navbar">
@@ -59,6 +67,9 @@ export default function Navbar({ onToggleSidebar }) {
             <div className="card glass" style={{ position: 'absolute', insetInlineEnd: 0, top: 48, width: 280, zIndex: 60, padding: 0 }}>
               <div className="card-header"><h3>اعلان‌ها</h3></div>
               <div>
+                {notifications.length === 0 && (
+                  <div className="text-muted" style={{ padding: '12px 16px', fontSize: 13 }}>اعلانی وجود ندارد</div>
+                )}
                 {notifications.map((n) => (
                   <div key={n.id} style={{ padding: '12px 16px', borderBottom: '1px solid var(--color-border)', fontSize: 13 }}>
                     <div>{n.text}</div>

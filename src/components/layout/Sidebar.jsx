@@ -1,6 +1,6 @@
 import { NavLink } from 'react-router-dom'
 import {
-  FiGrid, FiUsers, FiCreditCard, FiBarChart2, FiUserCheck, FiSettings, FiMoon, FiShoppingCart, FiBriefcase,
+  FiGrid, FiUsers, FiCreditCard, FiBarChart2, FiUserCheck, FiSettings, FiMoon, FiShoppingCart, FiBriefcase, FiCpu,
 } from 'react-icons/fi'
 import { FaMosque } from 'react-icons/fa'
 import { useData } from '../../contexts/DataContext'
@@ -11,6 +11,7 @@ const MENU = [
   { to: '/pilgrims', label: 'زائران', icon: <FiUsers />, page: 'pilgrims' },
   { to: '/payments', label: 'پرداخت‌ها', icon: <FiCreditCard />, page: 'payments' },
   { to: '/reports', label: 'گزارش‌ها', icon: <FiBarChart2 />, page: 'reports' },
+  { to: '/ai', label: 'تحلیل هوشمند', icon: <FiCpu />, page: 'reports' },
   { to: '/employees', label: 'کارمندان', icon: <FiUserCheck />, page: 'employees' },
   { to: '/companies', label: 'شرکت‌ها', icon: <FiBriefcase />, page: 'companies' },
   { to: '/expenses', label: 'مصارف روزانه', icon: <FiShoppingCart />, page: 'expenses' },

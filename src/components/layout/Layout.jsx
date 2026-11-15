@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Outlet } from 'react-router-dom'
 import Sidebar from './Sidebar'
 import Navbar from './Navbar'
+import FloatingAssistant from '../ai/FloatingAssistant'
 
 export default function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -15,6 +16,7 @@ export default function Layout() {
           <Outlet />
         </div>
       </div>
+      <FloatingAssistant />
     </div>
   )
 }

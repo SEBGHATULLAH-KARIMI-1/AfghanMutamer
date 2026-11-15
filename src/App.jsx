@@ -17,6 +17,7 @@ import Employees from './pages/Employees'
 import Expenses from './pages/Expenses'
 import Companies from './pages/Companies'
 import Settings from './pages/Settings'
+import AIInsights from './pages/AIInsights'
 
 export default function App() {
   return (
@@ -43,6 +44,7 @@ export default function App() {
                   <Route path="employees" element={<RequirePermission page="employees"><Employees /></RequirePermission>} />
                   <Route path="expenses" element={<RequirePermission page="expenses"><Expenses /></RequirePermission>} />
                   <Route path="companies" element={<RequirePermission page="companies"><Companies /></RequirePermission>} />
+                  <Route path="ai" element={<RequirePermission page="reports"><AIInsights /></RequirePermission>} />
                   <Route path="settings" element={<RequirePermission page="settings"><Settings /></RequirePermission>} />
                 </Route>
               </Routes>

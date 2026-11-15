@@ -1,5 +1,16 @@
 import { useMemo, useState } from 'react'
 
+// نرمال‌سازی متن برای جستجو: حروف عربی ← فارسی، ارقام فارسی/عربی ← لاتین، حذف نیم‌فاصله
+export function normalize(value) {
+  return String(value ?? '')
+    .toLowerCase()
+    .replace(/ي/g, 'ی')
+    .replace(/ك/g, 'ک')
+    .replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 0x06f0))
+    .replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 0x0660))
+    .replace(/\u200c/g, '')
+}
+
 export function useTableState(data, { searchFields = [], pageSize = 8 } = {}) {
   const [search, setSearch] = useState('')
   const [filters, setFilters] = useState({})
@@ -8,9 +19,10 @@ export function useTableState(data, { searchFields = [], pageSize = 8 } = {}) {
   const filtered = useMemo(() => {
     let list = data || []
     if (search.trim()) {
-      const q = search.trim().toLowerCase()
+      const q = normalize(search.trim())
+      // فیلدها با فاصله به هم وصل می‌شوند تا جستجوی «نام + نام خانوادگی» هم کار کند
       list = list.filter((item) =>
-        searchFields.some((f) => String(item[f] || '').toLowerCase().includes(q))
+        searchFields.map((f) => normalize(item[f])).join(' ').includes(q)
       )
     }
     Object.entries(filters).forEach(([key, value]) => {

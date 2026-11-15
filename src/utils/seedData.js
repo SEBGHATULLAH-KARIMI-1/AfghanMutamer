@@ -17,7 +17,8 @@ function randomDateBetween(startYear, endYear) {
   const y = randInt(startYear, endYear)
   const m = randInt(1, 12)
   const d = randInt(1, 28)
-  return new Date(y, m - 1, d).toISOString().slice(0, 10)
+  const pad = (n) => String(n).padStart(2, '0')
+  return `${y}-${pad(m)}-${pad(d)}`
 }
 
 function buildPilgrims(count) {
@@ -136,6 +137,7 @@ function getDefaultRoles() {
         reports: { view: true, export: true },
         employees: { view: true, create: false, edit: false, delete: false },
         expenses: { view: true, create: true, edit: true, delete: false },
+        companies: { view: true, create: false, edit: false, delete: false },
         settings: { view: false },
       },
     },
@@ -150,6 +152,7 @@ function getDefaultRoles() {
         reports: { view: true, export: false },
         employees: { view: false, create: false, edit: false, delete: false },
         expenses: { view: true, create: true, edit: false, delete: false },
+        companies: { view: true, create: false, edit: false, delete: false },
         settings: { view: false },
       },
     },
@@ -164,10 +167,35 @@ function getDefaultRoles() {
         reports: { view: false, export: false },
         employees: { view: false, create: false, edit: false, delete: false },
         expenses: { view: false, create: false, edit: false, delete: false },
+        companies: { view: false, create: false, edit: false, delete: false },
         settings: { view: false },
       },
     },
   ]
+}
+
+const PAGE_KEYS = ['dashboard', 'pilgrims', 'payments', 'reports', 'employees', 'expenses', 'companies', 'settings']
+
+// نقش‌های قدیمی که صفحه‌های جدید (مثل «شرکت‌ها») را ندارند کامل می‌شوند:
+// نقش‌های پیش‌فرض مقدار پیش‌فرض خودشان را می‌گیرند، نقش‌های سفارشی بدون دسترسی می‌مانند
+function migrateRoles() {
+  const roles = storage.get(KEYS.ROLES, null)
+  if (!Array.isArray(roles)) return
+  const defaults = getDefaultRoles()
+  const adminShape = defaults[0].permissions
+  let changed = false
+  const fixed = roles.map((role) => {
+    const perms = { ...(role.permissions || {}) }
+    const def = defaults.find((d) => d.id === role.id)
+    PAGE_KEYS.forEach((page) => {
+      if (perms[page]) return
+      perms[page] = def?.permissions[page]
+        || Object.fromEntries(Object.keys(adminShape[page]).map((k) => [k, false]))
+      changed = true
+    })
+    return { ...role, permissions: perms }
+  })
+  if (changed) storage.set(KEYS.ROLES, fixed)
 }
 
 export function seedIfEmpty() {
@@ -175,6 +203,7 @@ export function seedIfEmpty() {
     if (!storage.get(KEYS.ROLES, null)) {
       storage.set(KEYS.ROLES, getDefaultRoles())
     }
+    migrateRoles()
     return
   }
 

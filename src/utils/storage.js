@@ -12,6 +12,7 @@ const KEYS = {
   ROLES: 'hums_roles',
   SEEDED: 'hums_seeded_v1',
   COMPANIES: 'hums_companies',
+  EXPENSES: 'hums_expenses',
 }
 
 function read(key, fallback) {
@@ -73,16 +74,31 @@ export const storage = {
   },
 
   exportBackup() {
+    // نشست ورود (AUTH) در پشتیبان نیامده تا بازیابی کسی را به جای کاربر دیگر وارد نکند
     const backup = {}
     Object.values(KEYS).forEach((k) => {
+      if (k === KEYS.AUTH) return
       backup[k] = read(k, null)
     })
     return backup
   },
   restoreBackup(backup) {
-    Object.entries(backup).forEach(([k, v]) => {
-      if (v !== null && v !== undefined) write(k, v)
+    if (!backup || typeof backup !== 'object' || Array.isArray(backup)) throw new Error('invalid-backup')
+    const listKeys = [KEYS.PILGRIMS, KEYS.PAYMENTS, KEYS.EMPLOYEES, KEYS.LOGS, KEYS.USERS, KEYS.ROLES, KEYS.COMPANIES, KEYS.EXPENSES]
+    let restored = 0
+    // فقط کلیدهای شناخته‌شده‌ی برنامه بازیابی می‌شوند و نشست ورود هرگز
+    Object.values(KEYS).forEach((k) => {
+      if (k === KEYS.AUTH) return
+      const v = backup[k]
+      if (v === null || v === undefined) return
+      if (listKeys.includes(k) && !Array.isArray(v)) return
+      if ((k === KEYS.USERS || k === KEYS.ROLES) && v.length === 0) return // جلوگیری از قفل شدن سیستم
+      if (k === KEYS.SETTINGS && (typeof v !== 'object' || Array.isArray(v))) return
+      if (k === KEYS.THEME && v !== 'light' && v !== 'dark') return
+      if (write(k, v)) restored += 1
     })
+    if (restored === 0) throw new Error('empty-backup')
+    return restored
   },
 }
 

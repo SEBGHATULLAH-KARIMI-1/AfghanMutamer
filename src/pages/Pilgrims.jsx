@@ -10,7 +10,7 @@ import Modal from '../components/common/Modal'
 import ConfirmModal from '../components/common/ConfirmModal'
 import Pagination from '../components/common/Pagination'
 import EmptyState from '../components/common/EmptyState'
-import { formatJalali, toPersianDigits } from '../utils/dateUtils'
+import { formatJalali, toPersianDigits, todayISO } from '../utils/dateUtils'
 import { exportToExcel } from '../utils/excelExport'
 import { exportTableToPDF, previewPdfBlob } from '../utils/pdfExport'
 
@@ -22,7 +22,7 @@ const EMPTY_FORM = {
 }
 
 export default function Pilgrims() {
-  const { pilgrims, addPilgrim, updatePilgrim, deletePilgrim, companies } = useData()
+  const { pilgrims, addPilgrim, updatePilgrim, deletePilgrim, companies, payments } = useData()
   const { showToast } = useToast()
   const { can } = useAuth()
 
@@ -95,17 +95,48 @@ export default function Pilgrims() {
     const file = e.target.files?.[0]
     if (!file) return
     const reader = new FileReader()
-    reader.onload = () => setForm(idx, { photo: reader.result })
+    reader.onload = () => {
+      // عکس کوچک و فشرده می‌شود تا حافظه‌ی مرورگر (localStorage) پر نشود
+      const img = new Image()
+      img.onload = () => {
+        const MAX = 400
+        const scale = Math.min(1, MAX / Math.max(img.width, img.height))
+        const canvas = document.createElement('canvas')
+        canvas.width = Math.max(1, Math.round(img.width * scale))
+        canvas.height = Math.max(1, Math.round(img.height * scale))
+        const ctx = canvas.getContext('2d')
+        ctx.fillStyle = '#ffffff'
+        ctx.fillRect(0, 0, canvas.width, canvas.height)
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+        setForm(idx, { photo: canvas.toDataURL('image/jpeg', 0.8) })
+      }
+      img.onerror = () => showToast('فایل عکس معتبر نیست', 'error')
+      img.src = reader.result
+    }
     reader.readAsDataURL(file)
+    e.target.value = ''
   }
 
   function validateAll() {
-    const newErrorsList = forms.map((f) => {
+    const today = todayISO()
+    const newErrorsList = forms.map((f, idx) => {
       const errs = {}
       if (!f.fullName.trim()) errs.fullName = 'نام الزامی است'
       if (!f.lastName.trim()) errs.lastName = 'نام خانوادگی الزامی است'
       if (!f.phone.trim()) errs.phone = 'شماره تماس الزامی است'
-      if (!f.passportNumber.trim()) errs.passportNumber = 'شماره گذرنامه الزامی است'
+      else if (f.phone.replace(/\D/g, '').length < 7) errs.phone = 'شماره تماس معتبر نیست'
+      if (!f.passportNumber.trim()) {
+        errs.passportNumber = 'شماره گذرنامه الزامی است'
+      } else {
+        const pp = f.passportNumber.trim().toUpperCase()
+        const dupExisting = pilgrims.some((p) => p.id !== editId && String(p.passportNumber || '').trim().toUpperCase() === pp)
+        const dupBatch = forms.some((o, j) => j !== idx && o.passportNumber.trim().toUpperCase() === pp)
+        if (dupExisting || dupBatch) errs.passportNumber = 'این شماره گذرنامه قبلاً ثبت شده است'
+      }
+      if (f.dob && f.dob > today) errs.dob = 'تاریخ تولد نمی‌تواند در آینده باشد'
+      if (f.passportIssueDate && f.passportExpiryDate && f.passportExpiryDate <= f.passportIssueDate) {
+        errs.passportExpiryDate = 'تاریخ انقضا باید بعد از تاریخ صدور باشد'
+      }
       return errs
     })
     setErrorsList(newErrorsList)
@@ -120,7 +151,7 @@ export default function Pilgrims() {
       showToast('اطلاعات زائر بروزرسانی شد', 'success')
       setModalOpen(false)
     } else {
-      forms.forEach((f) => addPilgrim(f))
+      forms.forEach((f) => addPilgrim({ ...f, createdAt: todayISO() }))
       showToast(`${forms.length} زائر با موفقیت اضافه شدند`, 'success')
       setModalOpen(false)
     }
@@ -131,9 +162,12 @@ export default function Pilgrims() {
     showToast('زائر حذف شد', 'error')
   }
 
-  function printProfile(p) {
+  function printProfile(raw) {
+    // مقادیر قبل از قرار گرفتن در HTML امن‌سازی می‌شوند
+    const esc = (v) => String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+    const p = Object.fromEntries(Object.entries(raw).map(([k, v]) => [k, typeof v === 'string' ? esc(v) : v]))
     const w = window.open('', '_blank', 'width=700,height=900')
-    if (!w) return
+    if (!w) { showToast('مرورگر پنجره‌ی چاپ را مسدود کرد؛ اجازه‌ی باز شدن پنجره را بدهید', 'error'); return }
     w.document.write(`
       <html dir="rtl" lang="fa">
         <head><meta charset="utf-8" /><title>پروفایل زائر</title>
@@ -150,12 +184,12 @@ export default function Pilgrims() {
           <table>
             <tr><td class="label">نام پدر</td><td>${p.fatherName || '-'}</td></tr>
             <tr><td class="label">جنسیت</td><td>${p.gender}</td></tr>
-            <tr><td class="label">تاریخ تولد</td><td>${p.dob || '-'}</td></tr>
+            <tr><td class="label">تاریخ تولد</td><td>${formatJalali(p.dob)}</td></tr>
             <tr><td class="label">شماره تماس</td><td>${p.phone}</td></tr>
             <tr><td class="label">آدرس</td><td>${p.address || '-'}</td></tr>
             <tr><td class="label">شماره گذرنامه</td><td>${p.passportNumber}</td></tr>
-            <tr><td class="label">تاریخ صدور گذرنامه</td><td>${p.passportIssueDate || '-'}</td></tr>
-            <tr><td class="label">تاریخ انقضای گذرنامه</td><td>${p.passportExpiryDate || '-'}</td></tr>
+            <tr><td class="label">تاریخ صدور گذرنامه</td><td>${formatJalali(p.passportIssueDate)}</td></tr>
+            <tr><td class="label">تاریخ انقضای گذرنامه</td><td>${formatJalali(p.passportExpiryDate)}</td></tr>
             <tr><td class="label">نوع سفر</td><td>${p.travelType}</td></tr>
             <tr><td class="label">شماره کاروان</td><td>${p.caravanNumber || '-'}</td></tr>
             <tr><td class="label">قیمت بسته</td><td>${p.packagePrice ? Number(p.packagePrice).toLocaleString() + ' ' + (p.currency || 'افغانی') : '-'}</td></tr>
@@ -250,17 +284,22 @@ export default function Pilgrims() {
       return
     }
     const { columns, rows: data } = buildExportData(rows)
-    if (exportFormat === 'excel') {
-      await exportToExcel({ sheetName: 'زائران', fileName: `zayeran-${Date.now()}.xlsx`, rows: data })
-      showToast('خروجی Excel با موفقیت دریافت شد', 'success')
-    } else {
-      await exportTableToPDF({
-        title: 'فهرست زائران',
-        columns,
-        rows: data.map((r) => Object.values(r)),
-        fileName: `zayeran-${Date.now()}.pdf`,
-      })
-      showToast('خروجی PDF با موفقیت دریافت شد', 'success')
+    try {
+      if (exportFormat === 'excel') {
+        await exportToExcel({ sheetName: 'زائران', fileName: `zayeran-${Date.now()}.xlsx`, rows: data })
+        showToast('خروجی Excel با موفقیت دریافت شد', 'success')
+      } else {
+        await exportTableToPDF({
+          title: 'فهرست زائران',
+          columns,
+          rows: data.map((r) => Object.values(r)),
+          fileName: `zayeran-${Date.now()}.pdf`,
+        })
+        showToast('خروجی PDF با موفقیت دریافت شد', 'success')
+      }
+    } catch {
+      showToast('خطا در تولید فایل خروجی', 'error')
+      return
     }
     if (previewPdfUrl) { URL.revokeObjectURL(previewPdfUrl); setPreviewPdfUrl(null) }
     setExportFormat(null)
@@ -292,7 +331,7 @@ export default function Pilgrims() {
       URL.revokeObjectURL(url)
     }
     const file = new File([blob], `zayeran.${format === 'excel' ? 'xlsx' : 'pdf'}`, { type: blob.type })
-    if (navigator.share && navigator.canShare({ files: [file] })) {
+    if (navigator.share && navigator.canShare?.({ files: [file] })) {
       navigator.share({ files: [file], title: 'فهرست زائران' }).catch(() => {})
     } else {
       showToast('مرورگر شما از اشتراک فایل پشتیبانی نمی‌کند', 'error')
@@ -468,6 +507,7 @@ export default function Pilgrims() {
                 <div className="form-field">
                   <label>تاریخ تولد</label>
                   <input type="date" className="date-input" value={form.dob} onChange={(e) => setForm(idx, { dob: e.target.value })} placeholder="تاریخ تولد" />
+                  {errorsList[idx]?.dob && <span className="error-text">{errorsList[idx].dob}</span>}
                 </div>
                 <div className="form-field">
                   <label>شماره تماس</label>
@@ -494,10 +534,13 @@ export default function Pilgrims() {
                 <div className="form-field">
                   <label>تاریخ انقضای گذرنامه</label>
                   <input type="date" className="date-input" value={form.passportExpiryDate} onChange={(e) => setForm(idx, { passportExpiryDate: e.target.value })} />
+                  {errorsList[idx]?.passportExpiryDate && <span className="error-text">{errorsList[idx].passportExpiryDate}</span>}
                 </div>
                 <div className="form-field">
                   <label>نوع سفر</label>
-                  <input className="text-input" value={form.travelType} onChange={(e) => setForm(idx, { travelType: e.target.value })} placeholder="مثال: عمره، حج، سیاحتی" />
+                  <select className="select-input" value={form.travelType} onChange={(e) => setForm(idx, { travelType: e.target.value })}>
+                    {[...new Set(['عمره', 'حج', 'سیاحتی', form.travelType].filter(Boolean))].map((t) => <option key={t} value={t}>{t}</option>)}
+                  </select>
                 </div>
                 <div className="form-field">
                   <label>قیمت بسته</label>
@@ -696,7 +739,12 @@ export default function Pilgrims() {
         onClose={() => setConfirmId(null)}
         onConfirm={handleDelete}
         title="حذف زائر"
-        message="آیا از حذف این زائر اطمینان دارید؟"
+        message={(() => {
+          const n = payments.filter((p) => p.pilgrimId === confirmId).length
+          return n > 0
+            ? `این زائر ${toPersianDigits(n)} پرداخت ثبت‌شده دارد که بعد از حذف زائر در سیستم باقی می‌ماند. آیا از حذف اطمینان دارید؟`
+            : 'آیا از حذف این زائر اطمینان دارید؟'
+        })()}
       />
     </div>
   )

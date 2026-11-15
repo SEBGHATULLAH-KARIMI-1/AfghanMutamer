@@ -8,7 +8,8 @@ import Modal from '../components/common/Modal'
 import ConfirmModal from '../components/common/ConfirmModal'
 import Pagination from '../components/common/Pagination'
 import EmptyState from '../components/common/EmptyState'
-import { formatCurrency, toPersianDigits } from '../utils/dateUtils'
+import { formatCurrency, toPersianDigits, todayISO } from '../utils/dateUtils'
+import { compressImage } from '../utils/image'
 
 const EMPTY_FORM = {
   employeeCode: '', name: '', position: 'اپراتور', phone: '', email: '',
@@ -29,31 +30,41 @@ export default function Employees() {
   const [confirmId, setConfirmId] = useState(null)
 
   function openAdd() {
-    setForm({ ...EMPTY_FORM, employeeCode: 'EMP-' + Math.floor(1000 + Math.random() * 8999) })
+    // کد کارمند بعدی: پشت‌سرهم و بدون تکرار
+    const nums = employees
+      .map((e) => parseInt(String(e.employeeCode || '').replace(/\D/g, ''), 10))
+      .filter((n) => Number.isFinite(n))
+    setForm({ ...EMPTY_FORM, employeeCode: 'EMP-' + (Math.max(1000, ...nums) + 1), joinDate: todayISO() })
     setEditId(null)
     setErrors({})
     setModalOpen(true)
   }
   function openEdit(emp) {
-    setForm(emp)
+    setForm({ ...EMPTY_FORM, ...emp })
     setEditId(emp.id)
     setErrors({})
     setModalOpen(true)
   }
 
-  function handlePhoto(e) {
+  async function handlePhoto(e) {
     const file = e.target.files?.[0]
+    e.target.value = ''
     if (!file) return
-    const reader = new FileReader()
-    reader.onload = () => setForm((f) => ({ ...f, photo: reader.result }))
-    reader.readAsDataURL(file)
+    try {
+      const photo = await compressImage(file)
+      setForm((f) => ({ ...f, photo }))
+    } catch {
+      showToast('فایل عکس معتبر نیست', 'error')
+    }
   }
 
   function validate() {
     const errs = {}
     if (!form.name.trim()) errs.name = 'نام الزامی است'
     if (!form.phone.trim()) errs.phone = 'شماره تماس الزامی است'
-    if (!form.salary) errs.salary = 'معاش الزامی است'
+    else if (form.phone.replace(/\D/g, '').length < 7) errs.phone = 'شماره تماس معتبر نیست'
+    if (form.email.trim() && !/^\S+@\S+\.\S+$/.test(form.email.trim())) errs.email = 'ایمیل معتبر نیست'
+    if (!form.salary || Number(form.salary) <= 0) errs.salary = 'معاش معتبر وارد کنید'
     setErrors(errs)
     return Object.keys(errs).length === 0
   }
@@ -185,6 +196,7 @@ export default function Employees() {
             <div className="form-field">
               <label>ایمیل</label>
               <input type="email" className="text-input" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="مثال: name@company.com" />
+              {errors.email && <span className="error-text">{errors.email}</span>}
             </div>
             <div className="form-field">
               <label>معاش</label>
