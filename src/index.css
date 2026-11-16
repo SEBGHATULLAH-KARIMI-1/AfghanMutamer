@@ -949,10 +949,11 @@ table.data-table tbody tr:nth-child(even):hover { background: var(--color-surfac
 .mb-1 { margin-bottom: 8px; } .mb-2 { margin-bottom: 16px; } .mb-3 { margin-bottom: 24px; }
 .fw-bold { font-weight: 700; }
 .section-title { font-size: 15px; font-weight: 700; margin-bottom: 14px; }
-.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
-@media (max-width: 900px) { .grid-2 { grid-template-columns: 1fr; } }
-.grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
-@media (max-width: 900px) { .grid-3 { grid-template-columns: 1fr; } }
+.grid-2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px; }
+.grid-2 > *, .grid-3 > * { min-width: 0; }
+@media (max-width: 900px) { .grid-2 { grid-template-columns: minmax(0, 1fr); } }
+.grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
+@media (max-width: 900px) { .grid-3 { grid-template-columns: minmax(0, 1fr); } }
 
 .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--color-border-light); margin-bottom: 18px; flex-wrap: wrap; }
 .tabs button {
@@ -1055,3 +1056,32 @@ table.data-table tbody tr:nth-child(even):hover { background: var(--color-surfac
 .ai-suggestions { padding: 10px 18px; border-top: 1px solid var(--color-border-light); }
 .ai-chat-input { display: flex; gap: 10px; padding: 14px 18px; border-top: 1px solid var(--color-border); }
 .ai-chat-input .text-input { flex: 1; }
+
+/* فیلترها (select) در موبایل: متن وسط فیلد و کامل قابل خواندن */
+@media (max-width: 640px) {
+  .toolbar .select-input {
+    flex: 1 1 calc(50% - 4px);
+    min-width: 0;
+    height: 42px;
+    padding: 0 10px;
+    line-height: 1.4;
+    font-size: 13px;
+    text-align: center;
+    text-align-last: center;
+    text-overflow: ellipsis;
+  }
+}
+
+/* تحلیل هوشمند در موبایل */
+@media (max-width: 768px) {
+  table.data-table.ai-table { min-width: 440px; }
+  .stat-card .stat-value { overflow-wrap: anywhere; }
+  .ai-hero { padding: 14px 16px; gap: 10px; }
+  .ai-hero .chip-group { margin-inline-start: 0 !important; width: 100%; }
+  .tabs { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tabs button { white-space: nowrap; flex-shrink: 0; padding: 9px 12px; }
+  .ai-bubble { max-width: 92%; }
+  .ai-chat-body { padding: 12px; }
+  .ai-chat-input { padding: 10px 12px; }
+}

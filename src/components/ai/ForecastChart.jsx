@@ -65,6 +65,7 @@ export default function ForecastChart({ series, forecast, name, color = '#0F5132
 
   const options = {
     responsive: true,
+    aspectRatio: typeof window !== 'undefined' && window.innerWidth < 640 ? 1.2 : 2,
     interaction: { mode: 'index', intersect: false },
     plugins: {
       legend: { position: 'bottom', labels: { filter: (item, d) => d.datasets[item.datasetIndex].showLegend !== false } },

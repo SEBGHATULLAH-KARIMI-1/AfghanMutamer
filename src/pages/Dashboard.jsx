@@ -4,7 +4,7 @@ import {
   Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, BarElement, Tooltip, Legend, Filler,
 } from 'chart.js'
 import {
-  FiUsers, FiUserCheck, FiTrendingUp, FiDollarSign, FiCalendar, FiBriefcase, FiTrendingDown,
+  FiUserCheck, FiTrendingUp, FiDollarSign, FiCalendar, FiTrendingDown,
 } from 'react-icons/fi'
 import { useData } from '../contexts/DataContext'
 import { useAuth } from '../contexts/AuthContext'
@@ -81,8 +81,6 @@ export default function Dashboard() {
 
   // ───────── آمار زائران ─────────
   const totalPilgrims = pilgrims.length
-  const umrahCount = pilgrims.filter((p) => p.travelType === 'عمره').length
-  const hajjCount = pilgrims.filter((p) => p.travelType === 'حج').length
   const totalEmployees = employees.length
   const todayPaymentsCount = payments.filter((p) => p.date === todayStr && isReceived(p)).length
 
@@ -250,9 +248,7 @@ export default function Dashboard() {
   return (
     <div>
       <div className="stats-grid">
-        {canPilgrims && <StatCard icon={<FiUsers />} label="تعداد کل زائران" value={toPersianDigits(totalPilgrims)} color="#0F5132" />}
-        {canPilgrims && <StatCard icon={<FiUserCheck />} label="تعداد زائران عمره" value={toPersianDigits(umrahCount)} color="#2b6cc0" />}
-        {canPilgrims && <StatCard icon={<FiBriefcase />} label="تعداد زائران حج" value={toPersianDigits(hajjCount)} color="#b8860b" />}
+        {canPilgrims && <StatCard icon={<FiUserCheck />} label="تعداد کل زائران" value={toPersianDigits(totalPilgrims)} color="#0F5132" />}
         {canPayments && <StatCard icon={<FiCalendar />} label="پرداخت‌های امروز" value={toPersianDigits(todayPaymentsCount)} color="#c0392b" />}
         {canPayments && <StatCard icon={<FiDollarSign />} label="مجموع درآمد (دالر)" value={formatCurrency(finance.income.usd, 'دالر')} color="#D4AF37" />}
         {canPayments && <StatCard icon={<FiDollarSign />} label="مجموع درآمد (افغانی)" value={formatCurrency(finance.income.afn, 'افغانی')} color="#b8860b" />}
