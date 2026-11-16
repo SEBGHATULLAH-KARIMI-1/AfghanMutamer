@@ -6,6 +6,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import { useToast } from '../../contexts/ToastContext'
 import { useData } from '../../contexts/DataContext'
 import { formatJalali } from '../../utils/dateUtils'
+import InstallButton from '../common/InstallButton'
 
 const TITLES = {
   '/': 'داشبورد',
@@ -55,6 +56,7 @@ export default function Navbar({ onToggleSidebar }) {
         <span className="navbar-title">{title}</span>
       </div>
       <div className="navbar-right">
+        <InstallButton />
         <button className="icon-btn" onClick={toggleTheme} title="تغییر حالت نمایش">
           {theme === 'light' ? <FiMoon /> : <FiSun />}
         </button>

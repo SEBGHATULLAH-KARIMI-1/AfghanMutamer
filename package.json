@@ -4,7 +4,9 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
+    "predev": "node scripts/make-icons.mjs",
     "dev": "vite",
+    "prebuild": "node scripts/make-icons.mjs",
     "build": "vite build",
     "preview": "vite preview"
   },
